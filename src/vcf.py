@@ -1,5 +1,8 @@
 import os
 import argparse
+import gzip
+from itertools import compress
+
 
 # current script location
 script_dir = '/'.join(os.path.realpath(__file__).split('/')[:-1])
@@ -26,7 +29,9 @@ class VCF:
             # get all the files in the analysis location
             _, _, member_file_list = os.walk(data_dir).next()
             for member_file in member_file_list:
-                if member_file.endswith('vcf.gz'):
+                # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
+                # version has already been created
+                if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
 
                     member_dir = os.path.join(data_dir, member_file)
 
@@ -56,6 +61,43 @@ class VCF:
         else:
             return self.vcf_files_dir
 
+    def filter(self):
+
+        for vcf_dir, vcf in zip(self.vcf_files_dir, self.vcf_files):
+            print 'processing {0}'.format(vcf)
+
+            # this flag indicates when to start collecting data
+            val_flag = False
+            # only take = CHROM, POS, REF, ALT, genotype
+            values_of_interest = [True, True, False, True, True, False, False, False, False, True]
+
+            file_obj_read = gzip.open(vcf_dir, 'r')
+            # new file filtered
+            new_directory = vcf_dir.replace('.vcf.gz', '.filtered.vcf.gz')
+            file_obj_write = gzip.open(new_directory, 'w+')
+            # genotype title has to be different depending on the vcf file
+            genotype = vcf.split('.')[0]
+            # file header
+            file_obj_write.writelines('#CHROM\tPOS\tREF\tALT\t' + genotype + '\n')
+
+            header = '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t'
+            for line in file_obj_read:
+                if header in line:
+                    val_flag = True
+                elif val_flag:
+                    split_line = line.split('\t')
+                    # filter the list split_line based on the boolean list values_of_intest
+                    new_list = list(compress(split_line, values_of_interest))
+                    # only get the genotype information - remove the metadata after the genotype information
+                    new_list[4] = new_list[4].split(':')[0]
+                    new_line = '\t'.join(new_list)
+                    new_line += '\n'
+                    file_obj_write.writelines(new_line)
+
+            # closing files
+            file_obj_read.close()
+            file_obj_write.close()
+
 
 def main():
 
@@ -79,6 +121,8 @@ def main():
     vcf = VCF()
     # read all the vcf files for that family
     vcf.read_files(c_dir=current_directory)
+    # filter the right column for the vcf files
+    vcf.filter()
 
 if __name__ == '__main__':
     main()
