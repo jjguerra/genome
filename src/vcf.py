@@ -1,23 +1,42 @@
-import os
-import argparse
 import gzip
 from itertools import compress
-
-
-# current script location
-script_dir = '/'.join(os.path.realpath(__file__).split('/')[:-1])
+import os
+from family import Family
+from shutil import copyfile
 
 
 class VCF:
+    """
+    VCF class contains all the function related to the vcf files i.e. readind, filtering, getting names, etc
+    """
     def __init__(self):
+        self.working_dir = ''
+        self.vcf_family_id = ''
         self.vcf_files = list()
         self.vcf_files_dir = list()
+        self.family_info = ''  # this variable will be pointing to the family.Family class
 
     def read_files(self, c_dir):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
         """
+
+        # save the c_dir for later use
+        self.working_dir = c_dir
+
+        # the number in the Sample_0XX
+        self.vcf_family_id = int(c_dir.split('/')[-1].replace('Sample_0', ''))
+
+        # check if c_dir is the right parent directory
+        if not self.vcf_family_id:
+            raise ValueError('Could not read the family ID from the directory provided')
+
+        # add information to the family_info depending on the c_dir provided
+        if self.vcf_family_id == 54:
+            self.family_info = Family(mother='054-001', son1='054-003', son2='054-004', other=['054-002',
+                                                                                               '054-005'])
+
         # extract list of object in the data directory
         _, family_member_file_list, _ = os.walk(c_dir).next()
 
@@ -28,6 +47,11 @@ class VCF:
             data_dir = os.path.join(cl_mem_folder, 'analysis')
             # get all the files in the analysis location
             _, _, member_file_list = os.walk(data_dir).next()
+
+            # check if there exists vcf.gz files or any other files
+            if len(member_file_list) == 0:
+                raise ValueError('Could not get vcf.gz files')
+
             for member_file in member_file_list:
                 # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
                 # version has already been created
@@ -39,30 +63,71 @@ class VCF:
                     self.vcf_files.append(member_file)
                     self.vcf_files_dir.append(member_dir)
 
-    def get_vcfs(self):
-        return self.vcf_files
+    def get_vcfs(self, filename='', filtered=''):
+        """
+        used to get all the vcf
+        :param filename: (optional) if filename provided then get that specific vcf filename
+        :param filtered: (optional) if true then return name of filtered files
+        :return: if filename provided only return one vcf filename else return all the vcf stored
+        """
 
-    def get_vcfs_dir(self, vcf_file_name=''):
+        if filename:
+            for vcf_file in self.vcf_files:
+                if filename in vcf_file:
+                    if filtered:
+                        return vcf_file.replace('.vcf.gz', '.filtered.vcf.gz')
+                    else:
+                        return vcf_file
+
+            # if it did not return a file, then return an error
+            raise ValueError('No vcf file with filename={0}'.format(filename))
+
+        # if filtered then modify the names of the files
+        if filtered:
+            vcf_files_filtered = list()
+            for vcf_file in self.vcf_files:
+                vcf_files_filtered.append(vcf_file.replace('.vcf.gz', '.filtered.vcf.gz'))
+
+            return vcf_files_filtered
+        else:
+            return self.vcf_files
+
+    def get_vcfs_dir(self, vcf_file_name='', filtered=''):
         """
         obtain the directory of an specified or all vcf files
         :param vcf_file_name: (optiona) the name of the vcf file to get the interested directory 
+        :param filtered: (optional) if true then return name of filtered files
         :return: if vcf_file_name then its directory else all the directories
         """
         # check if asking for a directory of a specific file name
         if vcf_file_name:
-            if vcf_file_name not in self.vcf_files:
-                raise ValueError('VCF file name "{0}"not found in the list'.format(vcf_file_name))
+            # fetch all the regular or filtered names
+            vcf_filenames = self.get_vcfs(filtered=filtered)
+            if vcf_file_name not in vcf_filenames:
+                raise ValueError('VCF file name "{0}" not found in the list'.format(vcf_file_name))
             else:
                 # get the index of interest
-                index = self.vcf_files.index(vcf_file_name)
-                return self.vcf_files_dir[index]
+                index = vcf_filenames.index(vcf_file_name)
+                if filtered:
+                    return self.vcf_files_dir[index].replace('.vcf.gz', '.filtered.vcf.gz')
+                else:
+                    return self.vcf_files_dir[index]
 
         # if not, then return all the directories
         else:
-            return self.vcf_files_dir
+            if filtered:
+                vcf_files_filtered = list()
+                for vcf_file in self.vcf_files_dir:
+                    vcf_files_filtered.append(vcf_file.replace('.vcf.gz', '.filtered.vcf.gz'))
+
+                return vcf_files_filtered
+            else:
+                return self.vcf_files_dir
 
     def filter(self):
-
+        """
+        creates a new vcf.gz file with only the CHROM, POS, REF, ALT, genotype columns
+        """
         for vcf_dir, vcf in zip(self.vcf_files_dir, self.vcf_files):
             print 'processing {0}'.format(vcf)
 
@@ -98,31 +163,23 @@ class VCF:
             file_obj_read.close()
             file_obj_write.close()
 
+    def _create_reference_file(self):
+        # get the mother or father vcf file number to be used as a reference
+        ref_number = self.family_info.get_reference_vcf()
+        # get vcf filename
+        vcf_filename = self.get_vcfs(filename=ref_number, filtered=True)
+        # need to rename the file by removing the reference to the first family member
+        ref_filename_list = vcf_filename.split('.')
+        ref_filename_list[0] = ref_filename_list[0].split('-')[0]
+        ref_filename = '.'.join(ref_filename_list)
 
-def main():
+        ref_file_dir = os.path.join(self.working_dir, ref_filename)
+        # create a reference vcf
+        vcf_file_dir = self.get_vcfs_dir(vcf_filename, filtered=True)
+        copyfile(vcf_file_dir, ref_file_dir)
 
-    # argument method
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--directory', '--dir', help='directory location of the samples')
-    args = parser.parse_args()
+        return ref_file_dir, ref_filename
 
-    # check if directory being pass
-    if args.directory:
-        if not os.path.exists(args.directory):
-            raise IOError('directory = "{0}" not found'.format(args.directory))
-        else:
-            current_directory = args.directory
-    else:
-        current_directory = script_dir
+    def merge(self):
 
-    # location to store the right directory
-    print 'working directory = {0}'.format(current_directory)
-
-    vcf = VCF()
-    # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory)
-    # filter the right column for the vcf files
-    vcf.filter()
-
-if __name__ == '__main__':
-    main()
+        dir, filiname = self._create_reference_file()
