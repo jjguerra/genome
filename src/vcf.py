@@ -3,6 +3,7 @@ from itertools import compress
 import os
 from family import Family
 from shutil import copyfile
+from snp import SNP
 
 
 class VCF:
@@ -15,6 +16,9 @@ class VCF:
         self.vcf_files = list()
         self.vcf_files_dir = list()
         self.family_info = ''  # this variable will be pointing to the family.Family class
+
+        # these variables are used for merging files
+        self.chrom_post_dict = dict()  # key = chrom, val = list of positions
 
     def read_files(self, c_dir):
         """
@@ -37,26 +41,32 @@ class VCF:
             self.family_info = Family(mother='054-001', son1='054-003', son2='054-004', other=['054-002',
                                                                                                '054-005'])
 
+        # /Users/jguerra/PycharmProjects/genome/data/Sample_054
+        # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
         # extract list of object in the data directory
-        _, family_member_file_list, _ = os.walk(c_dir).next()
+        # this line only keeps the directories/folder
+        _, family_member_file_list, _ = os.walk(self.working_dir).next()
 
         for member_folder in family_member_file_list:
             # complete directory location
-            cl_mem_folder = os.path.join(c_dir, member_folder)
+            cl_mem_folder = os.path.join(self.working_dir, member_folder)
             # actual location of the vcf.gz files
             data_dir = os.path.join(cl_mem_folder, 'analysis')
             # get all the files in the analysis location
+            # this line only keeps the files
             _, _, member_file_list = os.walk(data_dir).next()
 
             # check if there exists vcf.gz files or any other files
+            # this check that the list is not empty
             if len(member_file_list) == 0:
-                raise ValueError('Could not get vcf.gz files')
+                raise ValueError('directory = {0} is empty'.format(data_dir))
 
             for member_file in member_file_list:
                 # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
                 # version has already been created
                 if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
 
+                    # create a variable with the whole path/directory of the file
                     member_dir = os.path.join(data_dir, member_file)
 
                     # add to the object for later processing
@@ -126,7 +136,8 @@ class VCF:
 
     def filter(self):
         """
-        creates a new vcf.gz file with only the CHROM, POS, REF, ALT, genotype columns
+        Creates a new vcf.gz file with only the CHROM, POS, REF, ALT, genotype columns. This new vcf.gz file will be 
+        end in the name 'filtered.vcg.gz'
         """
         for vcf_dir, vcf in zip(self.vcf_files_dir, self.vcf_files):
             print 'processing {0}'.format(vcf)
@@ -163,7 +174,11 @@ class VCF:
             file_obj_read.close()
             file_obj_write.close()
 
-    def _create_reference_file(self):
+    def _create_base_file(self):
+        """
+        This function create the base vcf to which to add or merged onto the other vcf files
+        :return: the directory of the create vcf reference file and the name 
+        """
         # get the mother or father vcf file number to be used as a reference
         ref_number = self.family_info.get_reference_vcf()
         # get vcf filename
@@ -178,8 +193,94 @@ class VCF:
         vcf_file_dir = self.get_vcfs_dir(vcf_filename, filtered=True)
         copyfile(vcf_file_dir, ref_file_dir)
 
-        return ref_file_dir, ref_filename
+        return ref_file_dir, ref_filename, vcf_filename
 
     def merge(self):
+        """
+        Merge all the filtered.vcf.gz files under the working directory
+        """
 
-        dir, filiname = self._create_reference_file()
+        print '\nMerge option selected'
+
+        # copy and use the mother's vcf file as a base file
+        ref_dir, ref_filename, old_ref_filename = self._create_base_file()
+
+        print '\treference filename = {0}'.format(ref_filename)
+
+        # open the base file
+        base_file_obj = gzip.open(ref_dir, 'r')
+
+        # list to keep track of the added files in order to not add duplicates
+        merged_files = list()
+        # add the reference file
+        merged_files.append(old_ref_filename)
+
+        filtered_vcf_files = self.get_vcfs(filtered=True)
+        filtered_vcf_files_dirs = self.get_vcfs_dir(filtered=True)
+
+        # loop through all filtered vcf files
+        for vcf_dir, vcf_file in zip(filtered_vcf_files_dirs, filtered_vcf_files):
+
+            if vcf_file not in merged_files:
+
+                # open the file to merge
+                merging_file_obj = gzip.open(vcf_dir, 'r')
+                # open temp merged file
+                tmp_file_dir = ref_dir.replace(ref_filename, 'tmp.vcf.gz')
+                tmp_file_obj = gzip.open(tmp_file_dir, 'w+')
+
+                # flag used to skip over the header
+                first_iteration = True
+                # loop infinitely
+                while True:
+                    # try and get the next line, if eof then its will just keep looping
+                    try:
+                        base_line = base_file_obj.next()
+                    except StopIteration:
+                        pass
+                    try:
+                        comp_line = merging_file_obj.next()
+                    except StopIteration:
+                        pass
+
+                    # first iteration contains the header, therefore it needs to be skipped
+                    if not first_iteration:
+
+                        snp_base = SNP(base_file=ref_filename, base_snp=base_line)
+                        snp_base.add_snp(add_snp_file=vcf_file, additional_snp_info=comp_line)
+
+                        # check whether only one line needs to be added to the merged vcf.gz file
+                        if snp_base.one_line_addition:
+                            tmp_file_obj.writelines(snp_base.line)
+                        # add more than one line
+                        else:
+                            tmp_file_obj.writelines(snp_base.first_line)
+                            tmp_file_obj.writelines(snp_base.second_line)
+
+                    else:
+                        first_iteration = False
+                        # use the first line of the reference file
+                        line = base_line.replace('\n', '')
+                        # obtain the label of the last column of the comparison file
+                        new_column = comp_line.split('\t')[-1]
+                        # add column name to the reference line
+                        line += '\t' + new_column
+                        # write line to the temp file
+                        tmp_file_obj.writelines(line)
+
+                    # check if eof for both files
+                    if not (base_line and comp_line):
+                        break
+
+                tmp_file_obj.close()
+                merging_file_obj.close()
+
+                # switch the created temp file to the reference file
+                copyfile(tmp_file_dir, ref_dir)
+
+                print '\tfinished merging {0}'.format(vcf_file)
+
+        # closing base file
+        base_file_obj.close()
+
+        print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
