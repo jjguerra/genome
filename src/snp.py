@@ -4,10 +4,10 @@ class SNP:
 
         self.base_snp_file = base_file
         # remove the new line operator
-        self.base_snp = base_snp.replace('\n', '')
+        self.base_snp = base_snp
 
         # split line by the tab operator
-        base_info = base_snp.split('\t')
+        base_info = base_snp.replace('\n', '').split('\t')
 
         # make sure values were extracted correctly
         if not base_info:
@@ -67,8 +67,8 @@ class SNP:
 
     @staticmethod
     def _create_line(chrom, pos, ref, alt, gen):
-        n_alt = '/t'.join(alt)
-        n_gen = '/t'.join(gen)
+        n_alt = ','.join(alt)
+        n_gen = ','.join(gen)
         return chrom + '\t' + str(pos) + '\t' + ref + '\t' + n_alt + '\t' + n_gen + '\n'
 
     def add_snp(self, add_snp_file, additional_snp_info):

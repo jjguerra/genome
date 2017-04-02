@@ -18,6 +18,7 @@ def main():
     # optional argument
     parser.add_argument('-m', '--merge', action='store_true',
                         help='use argument to merge all filtered.vcf.gz files in the parent directory')
+    parser.add_argument('-o', '--output', help='directory where to output the filtered or merged files')
     args = parser.parse_args()
 
     # check if directory being pass
@@ -33,8 +34,15 @@ def main():
         print ''
         raise IOError('No working directory specified.')
 
+    if args.output:
+        if not os.path.exists(args.output):
+            raise IOError('output directory = "{0}" not found'.format(args.output))
+        else:
+            output_directory = args.output
+
     # location to store the right directory
     print 'working directory = {0}'.format(current_directory)
+    print 'output directory = {0}'.format(output_directory)
 
     vcf = VCF()
     # read all the vcf files for that family
@@ -46,7 +54,7 @@ def main():
 
     if args.merge:
         # merge all the vcf files
-        vcf.merge()
+        vcf.merge(output_dir=output_directory)
 
 
 if __name__ == '__main__':

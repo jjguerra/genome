@@ -195,7 +195,7 @@ class VCF:
 
         return ref_file_dir, ref_filename, vcf_filename
 
-    def merge(self):
+    def merge(self, output_dir=''):
         """
         Merge all the filtered.vcf.gz files under the working directory
         """
@@ -226,7 +226,11 @@ class VCF:
                 # open the file to merge
                 merging_file_obj = gzip.open(vcf_dir, 'r')
                 # open temp merged file
-                tmp_file_dir = ref_dir.replace(ref_filename, 'tmp.vcf.gz')
+                if output_dir:
+                    tmp_file_dir = os.path.join(output_dir, 'tmp.vcf.gz')
+                else:
+                    tmp_file_dir = ref_dir.replace(ref_filename, 'tmp.vcf.gz')
+
                 tmp_file_obj = gzip.open(tmp_file_dir, 'w+')
 
                 # flag used to skip over the header
