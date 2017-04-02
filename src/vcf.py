@@ -246,16 +246,26 @@ class VCF:
                     # first iteration contains the header, therefore it needs to be skipped
                     if not first_iteration:
 
-                        snp_base = SNP(base_file=ref_filename, base_snp=base_line)
-                        snp_base.add_snp(add_snp_file=vcf_file, additional_snp_info=comp_line)
+                        # check if not eof for the base file
+                        if base_line:
+                            # check if not eof for the comp file
+                            if comp_line:
+                                snp_base = SNP(base_file=ref_filename, base_snp=base_line)
+                                snp_base.add_snp(add_snp_file=vcf_file, additional_snp_info=comp_line)
 
-                        # check whether only one line needs to be added to the merged vcf.gz file
-                        if snp_base.one_line_addition:
-                            tmp_file_obj.writelines(snp_base.line)
-                        # add more than one line
+                                # check whether only one line needs to be added to the merged vcf.gz file
+                                if snp_base.one_line_addition:
+                                    tmp_file_obj.writelines(snp_base.line)
+                                # add more than one line
+                                else:
+                                    tmp_file_obj.writelines(snp_base.first_line)
+                                    tmp_file_obj.writelines(snp_base.second_line)
+
+                            else:
+                                tmp_file_obj.write(base_line)
+
                         else:
-                            tmp_file_obj.writelines(snp_base.first_line)
-                            tmp_file_obj.writelines(snp_base.second_line)
+                            tmp_file_obj.write(comp_line)
 
                     else:
                         first_iteration = False
@@ -276,7 +286,9 @@ class VCF:
                 merging_file_obj.close()
 
                 # switch the created temp file to the reference file
-                copyfile(tmp_file_dir, ref_dir)
+                copyfile(src=tmp_file_dir, dst=ref_dir)
+                # remove tmp file
+                os.remove(tmp_file_dir)
 
                 print '\tfinished merging {0}'.format(vcf_file)
 
