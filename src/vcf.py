@@ -17,15 +17,12 @@ class VCF:
         self.vcf_files_dir = list()
         self.family_info = ''  # this variable will be pointing to the family.Family class
 
-        # these variables are used for merging files
-        self.chrom_post_dict = dict()  # key = chrom, val = list of positions
-
-    def read_files(self, c_dir):
+    def read_files(self, c_dir, homozygote_test=False):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
+        :param stats: flag in order to collect a different kind of data for statistics collection
         """
-
         # save the c_dir for later use
         self.working_dir = c_dir
 
@@ -38,40 +35,66 @@ class VCF:
 
         # add information to the family_info depending on the c_dir provided
         if self.vcf_family_id == 54:
-            self.family_info = Family(mother='054-001', son1='054-003', son2='054-004', other=['054-002',
-                                                                                               '054-005'])
+            self.family_info = Family(parent='054-001', offspring=['054-003', '054-004'], other=['054-002','054-005'])
+        elif self.vcf_family_id == 85:
+            self.family_info = Family(parent='085-001', offspring=['085-002', '085-006'], other=['085-004', '054-005'])
+        elif self.vcf_family_id == 89:
+            self.family_info = Family(parent='089-001', offspring=['089-007'], other=['089-005', '089-006', '089-009'])
+        elif self.vcf_family_id == 95:
+            pass
+        elif self.vcf_family_id == 97:
+            pass
+        elif self.vcf_family_id == 109:
+            pass
+        elif self.vcf_family_id == 110:
+            pass
+        elif self.vcf_family_id == 115:
+            pass
 
-        # /Users/jguerra/PycharmProjects/genome/data/Sample_054
-        # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
-        # extract list of object in the data directory
-        # this line only keeps the directories/folder
-        _, family_member_file_list, _ = os.walk(self.working_dir).next()
+        if not homozygote_test:
+            # /Users/jguerra/PycharmProjects/genome/data/Sample_054
+            # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
+            # extract list of object in the data directory
+            # this line only keeps the directories/folder
+            _, family_member_folder_list, _ = os.walk(self.working_dir).next()
 
-        for member_folder in family_member_file_list:
-            # complete directory location
-            cl_mem_folder = os.path.join(self.working_dir, member_folder)
-            # actual location of the vcf.gz files
-            data_dir = os.path.join(cl_mem_folder, 'analysis')
-            # get all the files in the analysis location
-            # this line only keeps the files
-            _, _, member_file_list = os.walk(data_dir).next()
+            for member_folder in family_member_folder_list:
+                # complete directory location
+                cl_mem_folder = os.path.join(self.working_dir, member_folder)
+                # actual location of the vcf.gz files
+                data_dir = os.path.join(cl_mem_folder, 'analysis')
+                # get all the files in the analysis location
+                # this line only keeps the files
+                _, _, member_file_list = os.walk(data_dir).next()
 
-            # check if there exists vcf.gz files or any other files
-            # this check that the list is not empty
-            if len(member_file_list) == 0:
-                raise ValueError('directory = {0} is empty'.format(data_dir))
+                # check if there exists vcf.gz files or any other files
+                # this check that the list is not empty
+                if len(member_file_list) == 0:
+                    raise ValueError('directory = {0} is empty'.format(data_dir))
 
-            for member_file in member_file_list:
-                # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
-                # version has already been created
-                if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
+                for member_file in member_file_list:
+                    # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
+                    # version has already been created
+                    if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
 
-                    # create a variable with the whole path/directory of the file
-                    member_dir = os.path.join(data_dir, member_file)
+                        # create a variable with the whole path/directory of the file
+                        member_dir = os.path.join(data_dir, member_file)
 
-                    # add to the object for later processing
-                    self.vcf_files.append(member_file)
-                    self.vcf_files_dir.append(member_dir)
+                        # add to the object for later processing
+                        self.vcf_files.append(member_file)
+                        self.vcf_files_dir.append(member_dir)
+        # for stats collection, only look for the cvf.gz file
+        else:
+            # get all the files in the given working directory
+            _, _, dir_file_list = os.walk(self.working_dir).next()
+
+            # loop through all the files
+            for vcf_file in dir_file_list:
+                # look for the filtered.vcf.gz with the specified family id
+                if 'filtered.vcf.gz' in vcf_file and str(self.vcf_family_id) in vcf_file:
+                    # add its information to the class variables
+                    self.vcf_files = vcf_file
+                    self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
 
     def get_vcfs(self, filename='', filtered=''):
         """
@@ -139,6 +162,7 @@ class VCF:
         Creates a new vcf.gz file with only the CHROM, POS, REF, ALT, genotype columns. This new vcf.gz file will be 
         end in the name 'filtered.vcg.gz'
         """
+        print '\nFilter option selected'
         for vcf_dir, vcf in zip(self.vcf_files_dir, self.vcf_files):
             print 'processing {0}'.format(vcf)
 
@@ -300,3 +324,28 @@ class VCF:
         base_file_obj.close()
 
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
+
+    def homozygote_test(self, output_dir):
+        """
+        This function collect homozygote statistics from mother to offsprings
+        :param output_dir: (optional) location to output the statistics file
+        """
+        print '\nStatistics option selected'
+
+        # open the vcf file
+        vcf_file_obj = gzip.open(self.vcf_files_dir, 'r')
+        # open the statistics file
+        if output_dir:
+            filename = 'statistics_' + str(self.vcf_family_id) + '.txt'
+            stats_dir_filename = os.path.join(output_dir, filename)
+            stats_file_obj = open(stats_dir_filename, 'w+')
+
+        # flag used to check the header
+        first_iteration = True
+        for line in vcf_file_obj:
+
+            if not first_iteration:
+                pass
+            else:
+                # turn of flag
+                first_iteration = False

@@ -18,7 +18,11 @@ def main():
     # optional argument
     parser.add_argument('-m', '--merge', action='store_true',
                         help='use argument to merge all filtered.vcf.gz files in the parent directory')
+    # optional argument
     parser.add_argument('-o', '--output', help='directory where to output the filtered or merged files')
+    # optional argument
+    parser.add_argument('-h', '--homozygote_test', action='store_true',
+                        help='use argument to collect homozygote statistics')
     args = parser.parse_args()
 
     # check if directory being pass
@@ -42,13 +46,13 @@ def main():
             output_directory = args.output
 
     # location to store the right directory
-    print 'working directory = {0}'.format(current_directory)
+    print '\nworking directory = {0}'.format(current_directory)
     if output_directory:
         print 'output directory = {0}'.format(output_directory)
 
     vcf = VCF()
     # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory)
+    vcf.read_files(c_dir=current_directory, stats=args.homozygote_test)
 
     if args.filter:
         # filter columns of the vcf files
@@ -57,6 +61,10 @@ def main():
     if args.merge:
         # merge all the vcf files
         vcf.merge(output_dir=output_directory)
+
+    if args.statistics:
+        # collect homozygote statistics
+        vcf.homozygote_test(output_dir=output_directory)
 
 
 if __name__ == '__main__':

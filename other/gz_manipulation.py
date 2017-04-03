@@ -28,6 +28,9 @@ else:
     limit = 10
 
 for index, line in enumerate(file_obj_read):
+    import IPython
+    IPython.embed()
+    print line
     file_obj_write.writelines(line)
 
     if index == limit:

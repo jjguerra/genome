@@ -68,7 +68,7 @@ class SNP:
     @staticmethod
     def _create_line(chrom, pos, ref, alt, gen):
         n_alt = ','.join(alt)
-        n_gen = ','.join(gen)
+        n_gen = '\t'.join(gen)
         return chrom + '\t' + str(pos) + '\t' + ref + '\t' + n_alt + '\t' + n_gen + '\n'
 
     def add_snp(self, add_snp_file, additional_snp_info):
@@ -77,7 +77,6 @@ class SNP:
         :param add_snp_file:
         :param additional_snp_info: new SNP information 
         """
-
         # comp_info (list): 0 = chrom, 1 = pos, 2 = ref, 3 = alt, 4 = genotype
         comp_info = additional_snp_info.split('\t')
 
