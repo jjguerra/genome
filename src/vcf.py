@@ -17,11 +17,11 @@ class VCF:
         self.vcf_files_dir = list()
         self.family_info = ''  # this variable will be pointing to the family.Family class
 
-    def read_files(self, c_dir, homozygote_test=False):
+    def read_files(self, c_dir, homozygous_test=False):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
-        :param stats: flag in order to collect a different kind of data for statistics collection
+        :param homozygous_test: flag in order to collect a different kind of data for statistics collection
         """
         # save the c_dir for later use
         self.working_dir = c_dir
@@ -51,7 +51,7 @@ class VCF:
         elif self.vcf_family_id == 115:
             pass
 
-        if not homozygote_test:
+        if not homozygous_test:
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
             # extract list of object in the data directory
@@ -83,7 +83,7 @@ class VCF:
                         # add to the object for later processing
                         self.vcf_files.append(member_file)
                         self.vcf_files_dir.append(member_dir)
-        # for stats collection, only look for the cvf.gz file
+        # for homozygous_test collection, only look for the cvf.gz file
         else:
             # get all the files in the given working directory
             _, _, dir_file_list = os.walk(self.working_dir).next()
@@ -325,27 +325,95 @@ class VCF:
 
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
 
-    def homozygote_test(self, output_dir):
+    def homozygous_test(self, output_dir):
         """
         This function collect homozygote statistics from mother to offsprings
         :param output_dir: (optional) location to output the statistics file
         """
-        print '\nStatistics option selected'
+        print '\nhomozygous_test option selected'
+
 
         # open the vcf file
         vcf_file_obj = gzip.open(self.vcf_files_dir, 'r')
         # open the statistics file
+        filename='homozygous_test' + str(self.vcf_family_id) + '.vcf.gz'
+        homozygous_dir=os.path.join(self.working_dir, filename)
+
         if output_dir:
-            filename = 'statistics_' + str(self.vcf_family_id) + '.txt'
-            stats_dir_filename = os.path.join(output_dir, filename)
-            stats_file_obj = open(stats_dir_filename, 'w+')
+            homozygous_dir = os.path.join(output_dir, filename)
 
-        # flag used to check the header
-        first_iteration = True
-        for line in vcf_file_obj:
+        file_obj_write=gzip.open(homozygous_dir, 'w+')
 
-            if not first_iteration:
-                pass
+        # find the merged file in the working directory
+        merged_dir = ''
+        merged_file = ''
+        #numbers of wrong snp
+        num_of_wrong_snp = 0
+        #total numbers of sites
+        total_num_of_sites = 0
+
+        for file in os.listdir(self.working_dir):
+            print file
+            if file == 'test.vcf.gz':
+                merged_dir = os.path.join(self.working_dir, file)
+                merged_file = file
+
+        file_obj_read = gzip.open(merged_dir, 'r')
+
+        #set flag to skip the header
+        first_line = True
+
+        # read the file line by line
+        for lines in file_obj_read:
+
+            #skip and write the header
+            if first_line:
+                first_line = False
+                file_obj_write.writelines('#CHROM\tPOS\tREF\tALT\t054-001\t054-002\t054-003\t054-004\t054-005\n')
+
+            #starting from the second line
             else:
-                # turn of flag
-                first_iteration = False
+                total_num_of_sites += 1
+                # parse the line
+                lines_list = lines.split()
+
+                # parse the genotypes of parent
+                genotype_list_parent = list(lines_list[4])
+
+                #create a list of offspring ID
+                offspring_list = self.family_info.offspring
+
+                #create a list of genotypes of each offspring
+                child_genotype_list=list()
+                for offspring in offspring_list:
+                    print offspring
+                    print list(offspring)[6]
+                    print lines_list
+                    child_genotype_list.append(list(lines_list[3+int(list(offspring)[6])]))
+
+                # if the parent genotype exist on that position
+                # check whether the parent is homozygosus
+                if lines_list[4] != '-':
+                    # if parent is homozygous
+                    if genotype_list_parent[0] == genotype_list_parent[2]:
+
+                        # for each child
+                        for genotype in child_genotype_list:
+                            # if the child is homozygous
+                            if len(genotype) > 1:
+                                if genotype[0] == genotype[2]:
+
+                                    # if the parent and the child are homozygous on different allele,
+                                    # print a warning message
+                                    # write the line into the file
+                                    if genotype[0] != genotype_list_parent[0]:
+                                        num_of_wrong_snp += 1
+                                        file_obj_write.writelines(lines)
+                                        print 'position' + '\t' + lines_list[1] + '\t' + 'is wrong'
+
+        #close the files and print messages
+        file_obj_write.close()
+        file_obj_read.close()
+        print 'number of wrong SNP= ' + str(num_of_wrong_snp)
+        print 'total number of sites= ' + str(total_num_of_sites)
+        print 'homozygous.test.vcf.gz written'

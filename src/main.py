@@ -21,7 +21,7 @@ def main():
     # optional argument
     parser.add_argument('-o', '--output', help='directory where to output the filtered or merged files')
     # optional argument
-    parser.add_argument('-h', '--homozygote_test', action='store_true',
+    parser.add_argument('-homo', '--homozygous_test', action='store_true',
                         help='use argument to collect homozygote statistics')
     args = parser.parse_args()
 
@@ -52,7 +52,7 @@ def main():
 
     vcf = VCF()
     # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory, stats=args.homozygote_test)
+    vcf.read_files(c_dir=current_directory, homozygous_test=args.homozygous_test)
 
     if args.filter:
         # filter columns of the vcf files
@@ -62,9 +62,9 @@ def main():
         # merge all the vcf files
         vcf.merge(output_dir=output_directory)
 
-    if args.statistics:
+    if args.homozygous_test:
         # collect homozygote statistics
-        vcf.homozygote_test(output_dir=output_directory)
+        vcf.homozygous_test(output_dir=output_directory)
 
 
 if __name__ == '__main__':
