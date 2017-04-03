@@ -34,6 +34,7 @@ def main():
         print ''
         raise IOError('No working directory specified.')
 
+    output_directory = ''
     if args.output:
         if not os.path.exists(args.output):
             raise IOError('output directory = "{0}" not found'.format(args.output))
