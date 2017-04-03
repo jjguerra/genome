@@ -43,7 +43,8 @@ def main():
 
     # location to store the right directory
     print 'working directory = {0}'.format(current_directory)
-    print 'output directory = {0}'.format(output_directory)
+    if output_directory:
+        print 'output directory = {0}'.format(output_directory)
 
     vcf = VCF()
     # read all the vcf files for that family
