@@ -8,7 +8,7 @@ from snp import SNP
 
 class VCF:
     """
-    VCF class contains all the function related to the vcf files i.e. readind, filtering, getting names, etc
+    VCF class contains all the function related to the vcf files i.e. reading, filtering, getting names, etc
     """
 
     def __init__(self):
@@ -16,7 +16,7 @@ class VCF:
         self.vcf_family_id = ''
         self.vcf_files = list()
         self.vcf_files_dir = list()
-        self.family_info = ''  # this variable will be pointing to the family.Family class
+        self.family_info = Family()  # this variable will be pointing to the family.Family class
 
     def read_files(self, c_dir, homozygous_test=False):
         """
@@ -96,7 +96,7 @@ class VCF:
                     self.vcf_files = vcf_file
                     self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
 
-    def get_vcfs(self, filename='', filtered=''):
+    def get_vcfs(self, filename='', filtered=False):
         """
         used to get all the vcf
         :param filename: (optional) if filename provided then get that specific vcf filename
@@ -125,10 +125,10 @@ class VCF:
         else:
             return self.vcf_files
 
-    def get_vcfs_dir(self, vcf_file_name='', filtered=''):
+    def get_vcfs_dir(self, vcf_file_name='', filtered=False):
         """
         obtain the directory of an specified or all vcf files
-        :param vcf_file_name: (optiona) the name of the vcf file to get the interested directory 
+        :param vcf_file_name: (optional) the name of the vcf file to get the interested directory 
         :param filtered: (optional) if true then return name of filtered files
         :return: if vcf_file_name then its directory else all the directories
         """
@@ -252,7 +252,7 @@ class VCF:
         # add the reference file
         merged_files.append(old_ref_filename)
 
-        # get all the vcfs and their location with the filtered flag
+        # get all the vcf and their location with the filtered flag
         filtered_vcf_files = self.get_vcfs(filtered=True)
         filtered_vcf_files_dirs = self.get_vcfs_dir(filtered=True)
 
@@ -393,7 +393,7 @@ class VCF:
 
     def homozygous_test(self, output_dir):
         """
-        This function collect homozygote statistics from mother to offsprings
+        This function collect homozygous statistics from mother to offsprings
         :param output_dir: (optional) location to output the statistics file
         """
         print '\nhomozygous_test option selected'
@@ -451,7 +451,7 @@ class VCF:
                     child_genotype_list.append(list(line_information[3 + int(list(offspring)[6])]))
 
                 # if the parent genotype exist on that position
-                # check whether the parent is homozygosus
+                # check whether the parent is homozygous
                 if line_information[4] != '-':
                     # if parent is homozygous
                     if genotype_list_parent[0] == genotype_list_parent[2]:
