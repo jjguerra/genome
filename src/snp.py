@@ -32,7 +32,7 @@ class SNP:
         if len(base_info[4:]) > 1:
             self.genotype = base_info[4:]
         else:
-            self.genotype = list(base_info[-1].replace('\n', ''))
+            self.genotype = [base_info[-1].replace('\n', '')]
 
         self.base_written = False
         self.comp_written = False

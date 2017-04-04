@@ -256,8 +256,11 @@ class VCF:
         filtered_vcf_files = self.get_vcfs(filtered=True)
         filtered_vcf_files_dirs = self.get_vcfs_dir(filtered=True)
 
+        n_file = 0
         # loop through all filtered vcf files
         for vcf_dir, vcf_file in zip(filtered_vcf_files_dirs, filtered_vcf_files):
+
+            n_file += 1
 
             # check the vcf is not in the merged files
             if vcf_file not in merged_files:
@@ -389,7 +392,24 @@ class VCF:
 
                 print '\tfinished merging {0}'.format(vcf_file)
 
+                if n_file == 5:
+                    exit(0)
+
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
+
+    @staticmethod
+    def _is_homozygous(genotype):
+        """
+        check if the genotype passed is homozygous
+        :param genotype: genotype info i.e. 0/0 
+        :return: true if it is homozygous else false
+        """
+        genotype_alleles = genotype.split('/')
+
+        if genotype_alleles[0] == genotype_alleles[1]:
+            return True
+        else:
+            return False
 
     def homozygous_test(self, output_dir=''):
         """
@@ -417,7 +437,9 @@ class VCF:
         # numbers of wrong snp
         num_of_wrong_snp = 0
         # total numbers of sites
-        total_num_of_sites = 0
+        total_num_sites = 0
+        # total number of sites evaluated
+        total_num_sites_eval = 0
 
         # set flag to skip the header
         header = True
@@ -428,55 +450,80 @@ class VCF:
             # skip and write the header
             if header:
                 header = False
+                header_columns = line.split('\t')
                 file_obj_write.writelines(line)
 
             # starting from the second line
             else:
-                total_num_of_sites += 1
+                total_num_sites += 1
                 # parse the line
                 line_information = line.split('\t')
 
                 # parse the genotypes of parent
-                genotype_parent = list(line_information[4])
+                genotype_parent = line_information[4]
+                # use for a test later on
+                genotype_parent_list = line_information[4].split('/')
 
-                # check if the parent's genotype was provided since there are cases when it is not
-                # if it is then process or else just move to the next site
-                if genotype_parent:
-                    # create a list of offspring ID
+                # check if the parent's genotype was provided since there are cases when it is not.
+                # if it is then check whether it is homozygous
+                if genotype_parent and self._is_homozygous(genotype=genotype_parent):
+                    # increased sites evaluated
+                    total_num_sites_eval += 1
+                    # obtain a list of offspring IDs
                     offspring_list = self.family_info.offspring
 
-                    # create a list of genotypes of each offspring
-                    child_genotype_list = list()
+                    # for each offspring, find their column in the vcf.gz file and make a dictionary where the key
+                    # is the offspring and its value is the column
+                    offspring_col_index_dict = dict()
                     for offspring in offspring_list:
-                        print offspring
-                        print list(offspring)[6]
-                        print line_information
-                        child_genotype_list.append(list(line_information[3 + int(list(offspring)[6])]))
+                        for index, columns in enumerate(header_columns):
+                            if offspring in columns:
+                                offspring_col_index_dict[offspring] = index
+                                break
 
-                    # if the parent genotype exist on that position
-                    # check whether the parent is homozygous
-                    if line_information[4] != '-':
-                        # if parent is homozygous
-                        if genotype_list_parent[0] == genotype_list_parent[2]:
+                    if len(offspring_col_index_dict.keys()) != len(offspring_list):
+                        # Note: we can actually check for the offsprings which values were not populated
+                        raise ValueError('Some of the offspring were not found in the file')
 
-                            # for each child
-                            for genotype in child_genotype_list:
-                                # if the child is homozygous
-                                if len(genotype) > 1:
-                                    if genotype[0] == genotype[2]:
+                    for offspring in offspring_list:
+                        # get the offspring column index
+                        col_index = offspring_col_index_dict[offspring]
+                        # get the genotype information
+                        offspring_genotype = line_information[col_index]
 
-                                        # if the parent and the child are homozygous on different allele,
-                                        # print a warning message
-                                        # write the line into the file
-                                        if genotype[0] != genotype_list_parent[0]:
-                                            num_of_wrong_snp += 1
-                                            file_obj_write.writelines(line)
-                                            print 'position' + '\t' + line_information[1] + '\t' + 'is wrong'
+                        # check if offspring is homozygous
+                        if self._is_homozygous(offspring_genotype):
+                            # if the parent and the child are homozygous on different allele,
+                            # print a warning message
+                            # write the line into the file
+                            if offspring_genotype[0] != genotype_parent[0]:
+                                num_of_wrong_snp += 1
+                                file_obj_write.writelines(line)
+                                print 'error on chrom = {0} , position = {1}: parents and offspring homozygous alleles'\
+                                      ' mismatch'.format(line_information[0], line_information[1])
+                        # if its not homozygous, make sure it has at least one allele transmitted by the parent
+                        else:
+                            first_allele, second_allele = offspring_genotype.split('/')
+                            if (first_allele not in genotype_parent_list) and\
+                                    (second_allele not in genotype_parent_list):
+                                num_of_wrong_snp += 1
+                                file_obj_write.writelines(line)
+                                msg = 'error chrom = {0} , position = {1} : parents and offspring alleles mismatch'.\
+                                    format(line_information[0], line_information[1])
+                                print msg
+
+        msg = 'number of wrong SNP = {0}'.format(num_of_wrong_snp)
+        print msg
+        file_obj_write.writelines(msg)
+        msg = 'total number of sites = {0}'.format(total_num_sites)
+        print msg
+        file_obj_write.writelines(msg)
+        msg = 'total number of sites evaluated = {0}'.format(total_num_sites_eval)
+        print msg
+        file_obj_write.writelines(msg)
+
+        print '{0} written'.format(self.vcf_files)
 
         # close the files and print messages
         file_obj_write.close()
         file_obj_read.close()
-
-        print 'number of wrong SNP = {0}'.format(num_of_wrong_snp)
-        print 'total number of sites = {0}'.format(total_num_of_sites)
-        print '{0} written'.format(self.vcf_files)
