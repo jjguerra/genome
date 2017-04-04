@@ -32,7 +32,7 @@ class SNP:
         if len(base_info[4:]) > 1:
             self.genotype = base_info[4:]
         else:
-            self.genotype = [base_info[-1].replace('\n', '')]
+            self.genotype = list(base_info[-1].replace('\n', ''))
 
         self.base_written = False
         self.comp_written = False
@@ -66,7 +66,7 @@ class SNP:
             alternate = alt_alleles.split(',')
         else:
             # make it a list for future analysis
-            alternate = [alt_alleles]
+            alternate = list(alt_alleles)
 
         # this dictionary has the ALT allele as keys and the ALT allele index as values
         alt_index_dict = dict()

@@ -391,7 +391,7 @@ class VCF:
 
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
 
-    def homozygous_test(self, output_dir):
+    def homozygous_test(self, output_dir=''):
         """
         This function collect homozygous statistics from mother to offsprings
         :param output_dir: (optional) location to output the statistics file
