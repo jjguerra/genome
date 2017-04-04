@@ -420,14 +420,14 @@ class VCF:
         total_num_of_sites = 0
 
         # set flag to skip the header
-        first_line = True
+        header = True
 
         # read the file line by line
         for line in file_obj_read:
 
             # skip and write the header
-            if first_line:
-                first_line = False
+            if header:
+                header = False
                 file_obj_write.writelines(line)
 
             # starting from the second line
