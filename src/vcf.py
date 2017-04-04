@@ -10,6 +10,7 @@ class VCF:
     """
     VCF class contains all the function related to the vcf files i.e. readind, filtering, getting names, etc
     """
+
     def __init__(self):
         self.working_dir = ''
         self.vcf_family_id = ''
@@ -35,7 +36,7 @@ class VCF:
 
         # add information to the family_info depending on the c_dir provided
         if self.vcf_family_id == 54:
-            self.family_info = Family(parent='054-001', offspring=['054-003', '054-004'], other=['054-002','054-005'])
+            self.family_info = Family(parent='054-001', offspring=['054-003', '054-004'], other=['054-002', '054-005'])
         elif self.vcf_family_id == 85:
             self.family_info = Family(parent='085-001', offspring=['085-002', '085-006'], other=['085-004', '054-005'])
         elif self.vcf_family_id == 89:
@@ -76,14 +77,13 @@ class VCF:
                     # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
                     # version has already been created
                     if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
-
                         # create a variable with the whole path/directory of the file
                         member_dir = os.path.join(data_dir, member_file)
 
                         # add to the object for later processing
                         self.vcf_files.append(member_file)
                         self.vcf_files_dir.append(member_dir)
-        # for homozygous_test collection, only look for the cvf.gz file
+        # for stats collection, only look for the cvf.gz file
         else:
             # get all the files in the given working directory
             _, _, dir_file_list = os.walk(self.working_dir).next()
@@ -219,6 +219,22 @@ class VCF:
 
         return ref_file_dir, ref_filename, vcf_filename
 
+    @staticmethod
+    def _comp_line_format(line, n_col):
+        """
+        This function create the right string to be printed if the comp line is used i.e. it prints the genotype
+        information of the comp line in the right column
+        :param line: line to be printed
+        :param n_col: column index of the genotype index
+        :return: the new line with the right spaces
+        """
+        new_list = line.split('\t')[:4]
+        while len(new_list) != n_col:
+            new_list.append('')
+        new_list.append(line.split('\t')[-1])
+        # return the new line with the tabs operators
+        return '\t'.join(new_list)
+
     def merge(self, output_dir=''):
         """
         Merge all the filtered.vcf.gz files under the working directory
@@ -226,92 +242,145 @@ class VCF:
 
         print '\nMerge option selected'
 
-        # copy and use the mother's vcf file as a base file
+        # copy and use the parent's vcf file as a base file
         ref_dir, ref_filename, old_ref_filename = self._create_base_file()
 
         print '\treference filename = {0}'.format(ref_filename)
 
-        # open the base file
-        base_file_obj = gzip.open(ref_dir, 'r')
-
-        # list to keep track of the added files in order to not add duplicates
+        # list to keep track of the added files in order to avoid duplicates
         merged_files = list()
         # add the reference file
         merged_files.append(old_ref_filename)
 
+        # get all the vcfs and their location with the filtered flag
         filtered_vcf_files = self.get_vcfs(filtered=True)
         filtered_vcf_files_dirs = self.get_vcfs_dir(filtered=True)
 
         # loop through all filtered vcf files
         for vcf_dir, vcf_file in zip(filtered_vcf_files_dirs, filtered_vcf_files):
 
+            # check the vcf is not in the merged files
             if vcf_file not in merged_files:
 
+                # open the base file
+                base_file_obj = gzip.open(ref_dir, 'r')
                 # open the file to merge
                 merging_file_obj = gzip.open(vcf_dir, 'r')
-                # open temp merged file
+
+                # create a temporary merged file
                 if output_dir:
                     tmp_file_dir = os.path.join(output_dir, 'tmp.vcf.gz')
                 else:
                     tmp_file_dir = ref_dir.replace(ref_filename, 'tmp.vcf.gz')
 
+                # open temp merged file
                 tmp_file_obj = gzip.open(tmp_file_dir, 'w+')
 
                 # flag used to skip over the header
-                first_iteration = True
+                header = True
+
+                # initialize lines variables
+                base_line = ''
+                comp_line = ''
+
+                # This number will be used to know where to print comp information i.e. information used to print the
+                # comp column in the right order
+                comp_column = 0
+
                 # loop infinitely
                 while True:
-                    # try and get the next line, if eof then its will just keep looping
-                    try:
-                        base_line = base_file_obj.next()
-                    except StopIteration:
-                        pass
-                    try:
-                        comp_line = merging_file_obj.next()
-                    except StopIteration:
-                        pass
 
-                    # first iteration contains the header, therefore it needs to be skipped
-                    if not first_iteration:
+                    # flags used to turn on deletion of their respective lines based on whether the line was
+                    # written to the temp file or not
+                    reset_base_line = False
+                    reset_comp_line = False
 
-                        # check if not eof for the base file
-                        if base_line:
-                            # check if not eof for the comp file
-                            if comp_line:
-                                snp_base = SNP(base_file=ref_filename, base_snp=base_line)
-                                snp_base.add_snp(add_snp_file=vcf_file, additional_snp_info=comp_line)
+                    # only read the file when the variable is empty
+                    if not base_line:
+                        # try and get the next line, if eof then it will just keep looping
+                        try:
+                            base_line = base_file_obj.next()
+                        except StopIteration:
+                            pass
+                    # only read the file when the variable is empty
+                    if not comp_line:
+                        # try and get the next line, if eof then it will just keep looping
+                        try:
+                            comp_line = merging_file_obj.next()
+                        except StopIteration:
+                            pass
 
-                                # check whether only one line needs to be added to the merged vcf.gz file
-                                if snp_base.one_line_addition:
-                                    tmp_file_obj.writelines(snp_base.line)
-                                # add more than one line
-                                else:
-                                    tmp_file_obj.writelines(snp_base.first_line)
-                                    tmp_file_obj.writelines(snp_base.second_line)
-
-                            else:
-                                tmp_file_obj.write(base_line)
-
-                        else:
-                            tmp_file_obj.write(comp_line)
-
-                    else:
-                        first_iteration = False
-                        # use the first line of the reference file
+                    # check if reading the header line
+                    if header:
+                        # turn of the header flag
+                        header = False
+                        # use the first line of the reference file and remove its new line operator
                         line = base_line.replace('\n', '')
-                        # obtain the label of the last column of the comparison file
+                        # obtain the name of the last column of the comparison file i.e. the name of the person
                         new_column = comp_line.split('\t')[-1]
                         # add column name to the reference line
                         line += '\t' + new_column
                         # write line to the temp file
                         tmp_file_obj.writelines(line)
+                        # obtain the number of column in the reference line. This number will be used to know where
+                        # to print comp information
+                        comp_column = len(line.split('\t'))
+
+                        # flags used to delete the content of their respective line after processing
+                        reset_base_line = True
+                        reset_comp_line = True
+
+                    else:
+                        # check if not eof for the base file
+                        if base_line:
+                            # check if not eof for the comp file
+                            if comp_line:
+                                snp_base = SNP(base_file=ref_filename, base_snp=base_line)
+                                snp_base.add_snp(add_snp_file=vcf_file, additional_snp_info=comp_line,
+                                                 n_col=comp_column)
+
+                                # always add a line based on the following requirements
+                                #   - chrom and position are the same
+                                #   - the information with the lowest chrom and position
+                                tmp_file_obj.writelines(snp_base.line)
+
+                                # turn on the respective flags
+                                if snp_base.base_written:
+                                    reset_base_line = True
+                                if snp_base.comp_written:
+                                    reset_comp_line = True
+
+                            else:
+                                # write the base information to the tmp file
+                                tmp_file_obj.write(base_line)
+                                # delete the content in the base line
+                                reset_base_line = True
+
+                        else:
+                            # check if not eof for the comp file
+                            if comp_line:
+                                # use the right format to print the line i.e. place the genotype in the right column
+                                new_line = self._comp_line_format(line=comp_line, n_col=comp_column)
+                                # write the new line to the temp file
+                                tmp_file_obj.writelines(new_line)
+                                # delete the content in the comp line
+                                reset_comp_line = True
 
                     # check if eof for both files
-                    if not (base_line and comp_line):
+                    if not base_line and not comp_line:
                         break
 
+                    # if these flags have been turned on by having written those lines in the file, then remove
+                    # the values in the lines.
+                    if reset_base_line:
+                        base_line = ''
+                    if reset_comp_line:
+                        comp_line = ''
+
+                # close all the files
                 tmp_file_obj.close()
                 merging_file_obj.close()
+                base_file_obj.close()
 
                 # switch the created temp file to the reference file
                 copyfile(src=tmp_file_dir, dst=ref_dir)
@@ -320,100 +389,7 @@ class VCF:
 
                 print '\tfinished merging {0}'.format(vcf_file)
 
-        # closing base file
-        base_file_obj.close()
-
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
 
     def homozygous_test(self, output_dir):
-        """
-        This function collect homozygote statistics from mother to offsprings
-        :param output_dir: (optional) location to output the statistics file
-        """
-        print '\nhomozygous_test option selected'
-
-
-        # open the vcf file
-        vcf_file_obj = gzip.open(self.vcf_files_dir, 'r')
-        # open the statistics file
-        filename='homozygous_test' + str(self.vcf_family_id) + '.vcf.gz'
-        homozygous_dir=os.path.join(self.working_dir, filename)
-
-        if output_dir:
-            homozygous_dir = os.path.join(output_dir, filename)
-
-        file_obj_write=gzip.open(homozygous_dir, 'w+')
-
-        # find the merged file in the working directory
-        merged_dir = ''
-        merged_file = ''
-        #numbers of wrong snp
-        num_of_wrong_snp = 0
-        #total numbers of sites
-        total_num_of_sites = 0
-
-        for file in os.listdir(self.working_dir):
-            print file
-            if file == 'test.vcf.gz':
-                merged_dir = os.path.join(self.working_dir, file)
-                merged_file = file
-
-        file_obj_read = gzip.open(merged_dir, 'r')
-
-        #set flag to skip the header
-        first_line = True
-
-        # read the file line by line
-        for lines in file_obj_read:
-
-            #skip and write the header
-            if first_line:
-                first_line = False
-                file_obj_write.writelines('#CHROM\tPOS\tREF\tALT\t054-001\t054-002\t054-003\t054-004\t054-005\n')
-
-            #starting from the second line
-            else:
-                total_num_of_sites += 1
-                # parse the line
-                lines_list = lines.split()
-
-                # parse the genotypes of parent
-                genotype_list_parent = list(lines_list[4])
-
-                #create a list of offspring ID
-                offspring_list = self.family_info.offspring
-
-                #create a list of genotypes of each offspring
-                child_genotype_list=list()
-                for offspring in offspring_list:
-                    print offspring
-                    print list(offspring)[6]
-                    print lines_list
-                    child_genotype_list.append(list(lines_list[3+int(list(offspring)[6])]))
-
-                # if the parent genotype exist on that position
-                # check whether the parent is homozygosus
-                if lines_list[4] != '-':
-                    # if parent is homozygous
-                    if genotype_list_parent[0] == genotype_list_parent[2]:
-
-                        # for each child
-                        for genotype in child_genotype_list:
-                            # if the child is homozygous
-                            if len(genotype) > 1:
-                                if genotype[0] == genotype[2]:
-
-                                    # if the parent and the child are homozygous on different allele,
-                                    # print a warning message
-                                    # write the line into the file
-                                    if genotype[0] != genotype_list_parent[0]:
-                                        num_of_wrong_snp += 1
-                                        file_obj_write.writelines(lines)
-                                        print 'position' + '\t' + lines_list[1] + '\t' + 'is wrong'
-
-        #close the files and print messages
-        file_obj_write.close()
-        file_obj_read.close()
-        print 'number of wrong SNP= ' + str(num_of_wrong_snp)
-        print 'total number of sites= ' + str(total_num_of_sites)
-        print 'homozygous.test.vcf.gz written'
+        pass

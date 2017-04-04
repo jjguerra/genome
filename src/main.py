@@ -21,7 +21,7 @@ def main():
     # optional argument
     parser.add_argument('-o', '--output', help='directory where to output the filtered or merged files')
     # optional argument
-    parser.add_argument('-homo', '--homozygous_test', action='store_true',
+    parser.add_argument('-ht', '--homozygous_test', action='store_true',
                         help='use argument to collect homozygote statistics')
     args = parser.parse_args()
 
@@ -63,7 +63,7 @@ def main():
         vcf.merge(output_dir=output_directory)
 
     if args.homozygous_test:
-        # collect homozygote statistics
+        # collect homozygous statistics
         vcf.homozygous_test(output_dir=output_directory)
 
 

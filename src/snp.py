@@ -30,9 +30,28 @@ class SNP:
 
         # check if there is more than one genotype information
         if len(base_info[4:]) > 1:
-            self.genotype = base_info[-1].replace('\n', '')
+            self.genotype = base_info[4:]
         else:
             self.genotype = [base_info[-1].replace('\n', '')]
+
+        self.base_written = False
+        self.comp_written = False
+
+    @staticmethod
+    def _comp_line_format(line, n_col):
+        """
+        This function create the right string to be printed if the comp line is used i.e. it prints the genotype
+        information of the comp line in the right column
+        :param line: line to be printed
+        :param n_col: column index of the genotype index
+        :return: the new line with the right spaces
+        """
+        new_list = line.split('\t')[:4]
+        while len(new_list) != n_col - 1:
+            new_list.append('')
+        new_list.append(line.split('\t')[-1])
+        # return the new line with the tabs operators
+        return '\t'.join(new_list)
 
     @staticmethod
     def _allele_index_processing(ref_allele, alt_alleles):
@@ -66,12 +85,28 @@ class SNP:
         return alternate, alt_index_dict, index_alt_dict
 
     @staticmethod
-    def _create_line(chrom, pos, ref, alt, gen):
+    def _create_line(chrom, pos, ref, alt, gen, n_col):
+        """
+        Creates the formatted line to be printed
+        :param chrom: chromosome
+        :param pos: position
+        :param ref: reference allele
+        :param alt: alternate allele
+        :param gen: genotype
+        :param n_col: the location of the last genotype
+        :return: the created line
+        """
         n_alt = ','.join(alt)
-        n_gen = '\t'.join(gen)
-        return chrom + '\t' + str(pos) + '\t' + ref + '\t' + n_alt + '\t' + n_gen + '\n'
+        n_gen = '\t'.join(gen[:-1])
+        line = '{0}\t{1}\t{2}\t{3}\t{4}'.format(chrom, pos, ref, n_alt, n_gen)
+        # need to perform this operation in order to add as tab operands as there are column left
+        if len(line) != n_col:
+            line += '\t'
+        # add the last genotype corresponding to the comp file
+        line += gen[-1] + '\n'
+        return line
 
-    def add_snp(self, add_snp_file, additional_snp_info):
+    def add_snp(self, add_snp_file, additional_snp_info, n_col):
         """
         Compares a new SNP information to the previously stored   
         :param add_snp_file:
@@ -86,15 +121,15 @@ class SNP:
         n_ref = comp_info[2]
         n_genotype = comp_info[4].replace('\n', '')
 
-        n_alt, n_alt_index_dict, n_index_alt_dict = self._allele_index_processing(ref_allele=n_ref,
-                                                                                  alt_alleles=comp_info[3])
-
         # compare values based on the groups extracted
         # compare chromosome value
         if self.chromosome == n_chrom:
 
             # if chromosome values are the same, compare position
             if self.position == n_position:
+
+                n_alt, n_alt_index_dict, n_index_alt_dict = self._allele_index_processing(ref_allele=n_ref,
+                                                                                          alt_alleles=comp_info[3])
 
                 # make sure REF are the same, if not then error!
                 if self.reference != n_ref:
@@ -111,10 +146,13 @@ class SNP:
                 base_genotype_alleles = list()
                 # convert base genotype to their alleles
                 for base_genotype in self.genotype:
-                    list_base_allele = base_genotype.split('/')
-                    first_base_allele = self.index_alt_dict[int(list_base_allele[0])]
-                    second_base_allele = self.index_alt_dict[int(list_base_allele[1])]
-                    base_genotype_alleles.append(first_base_allele + '/' + second_base_allele)
+                    if base_genotype:
+                        list_base_allele = base_genotype.split('/')
+                        first_base_allele = self.index_alt_dict[int(list_base_allele[0])]
+                        second_base_allele = self.index_alt_dict[int(list_base_allele[1])]
+                        base_genotype_alleles.append(first_base_allele + '/' + second_base_allele)
+                    else:
+                        base_genotype_alleles.append(base_genotype)
 
                 # split the comp genotype on its alleles
                 genotype_indices = n_genotype.split('/')
@@ -135,6 +173,7 @@ class SNP:
                 # this dictionary has the ALT allele index as keys and the ALT allele as values
                 index_alt_dict = dict()
                 alt_index = 1
+                # create the dictionaries based on the types of alternate alleles
                 for alt in self.alternate:
                     alt_index_dict[alt] = alt_index
                     index_alt_dict[alt_index] = alt
@@ -147,30 +186,37 @@ class SNP:
                 # convert all the allele genotype information into indices genotype information
                 genotype_list = list()
                 for genotype in base_genotype_alleles:
-                    alleles_list = genotype.split('/')
-                    first_allele = alt_index_dict[alleles_list[0]]
-                    second_allele = alt_index_dict[alleles_list[1]]
-                    genotype_list.append(str(first_allele) + '/' + str(second_allele))
+                    if genotype:
+                        alleles_list = genotype.split('/')
+                        first_allele = alt_index_dict[alleles_list[0]]
+                        second_allele = alt_index_dict[alleles_list[1]]
+                        allele_line = '{0}/{1}'.format(first_allele, second_allele)
+                        genotype_list.append(allele_line)
+                    else:
+                        genotype_list.append(genotype)
 
                 # create the actual line to go into the file
                 self.line = self._create_line(chrom=self.chromosome, pos=self.position, ref=self.reference,
-                                              alt=self.alternate, gen=genotype_list)
+                                              alt=self.alternate, gen=genotype_list, n_col=n_col)
 
                 # change the line flag since only one line will be added to vcf.gz file
                 self.one_line_addition = True
 
-            # if different POS values then whichever is smaller, write it first
-            elif self.position < n_position:
-                self.first_line = self.base_snp
-                self.second_line = additional_snp_info
-            else:
-                self.first_line = additional_snp_info
-                self.second_line = self.base_snp
+                self.base_written = True
+                self.comp_written = True
 
-        # if different chromosome numbers then whichever is smaller, write it first
+            # if different CHROM and POS values then write on the line whichever is smaller
+            elif self.position < n_position:
+                self.line = self.base_snp
+                self.base_written = True
+            else:
+                self.line = self._comp_line_format(line=additional_snp_info, n_col=n_col)
+                self.comp_written = True
+
+        # if different CHROM then write on the line whichever is smaller
         elif self.chromosome < n_chrom:
-            self.first_line = self.base_snp
-            self.second_line = additional_snp_info
+            self.line = self.base_snp
+            self.base_written = True
         else:
-            self.first_line = additional_snp_info
-            self.second_line = self.base_snp
+            self.line = self._comp_line_format(line=additional_snp_info, n_col=n_col)
+            self.comp_written = True
