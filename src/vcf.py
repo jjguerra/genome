@@ -437,38 +437,41 @@ class VCF:
                 line_information = line.split('\t')
 
                 # parse the genotypes of parent
-                genotype_list_parent = list(line_information[4])
+                genotype_parent = list(line_information[4])
 
-                # create a list of offspring ID
-                offspring_list = self.family_info.offspring
+                # check if the parent's genotype was provided since there are cases when it is not
+                # if it is then process or else just move to the next site
+                if genotype_parent:
+                    # create a list of offspring ID
+                    offspring_list = self.family_info.offspring
 
-                # create a list of genotypes of each offspring
-                child_genotype_list = list()
-                for offspring in offspring_list:
-                    print offspring
-                    print list(offspring)[6]
-                    print line_information
-                    child_genotype_list.append(list(line_information[3 + int(list(offspring)[6])]))
+                    # create a list of genotypes of each offspring
+                    child_genotype_list = list()
+                    for offspring in offspring_list:
+                        print offspring
+                        print list(offspring)[6]
+                        print line_information
+                        child_genotype_list.append(list(line_information[3 + int(list(offspring)[6])]))
 
-                # if the parent genotype exist on that position
-                # check whether the parent is homozygous
-                if line_information[4] != '-':
-                    # if parent is homozygous
-                    if genotype_list_parent[0] == genotype_list_parent[2]:
+                    # if the parent genotype exist on that position
+                    # check whether the parent is homozygous
+                    if line_information[4] != '-':
+                        # if parent is homozygous
+                        if genotype_list_parent[0] == genotype_list_parent[2]:
 
-                        # for each child
-                        for genotype in child_genotype_list:
-                            # if the child is homozygous
-                            if len(genotype) > 1:
-                                if genotype[0] == genotype[2]:
+                            # for each child
+                            for genotype in child_genotype_list:
+                                # if the child is homozygous
+                                if len(genotype) > 1:
+                                    if genotype[0] == genotype[2]:
 
-                                    # if the parent and the child are homozygous on different allele,
-                                    # print a warning message
-                                    # write the line into the file
-                                    if genotype[0] != genotype_list_parent[0]:
-                                        num_of_wrong_snp += 1
-                                        file_obj_write.writelines(line)
-                                        print 'position' + '\t' + line_information[1] + '\t' + 'is wrong'
+                                        # if the parent and the child are homozygous on different allele,
+                                        # print a warning message
+                                        # write the line into the file
+                                        if genotype[0] != genotype_list_parent[0]:
+                                            num_of_wrong_snp += 1
+                                            file_obj_write.writelines(line)
+                                            print 'position' + '\t' + line_information[1] + '\t' + 'is wrong'
 
         # close the files and print messages
         file_obj_write.close()
