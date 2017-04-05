@@ -533,7 +533,7 @@ class VCF:
         This function subsets the vcf.gz file based on the chromosome number
         :param chrom: chromosome
         :param output_dir: (optional) location to output the statistics file
-        :param n_lines: the total number of sites to include in the file
+        :param n_sites: the total number of sites to include in the file
         """
 
         print '\nsubset option selected on chrom {0}'.format(chrom)
