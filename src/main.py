@@ -22,7 +22,15 @@ def main():
     parser.add_argument('-o', '--output', help='directory where to output the filtered or merged files')
     # optional argument
     parser.add_argument('-ht', '--homozygous_test', action='store_true',
-                        help='use argument to collect homozygote statistics')
+                        help='use argument to collect homozygous statistics')
+    # optional argument
+    parser.add_argument('-s', '--subset', action='store_true',
+                        help='use argument to subset the vcf file based on chromosomes')
+    # optional argument
+    parser.add_argument('-c', '--chromosome', help='use argument to select the chromosome number on which to subset on')
+    # optional argument
+    parser.add_argument('-n', '--number_sites', help='use argument to select the number of line on which to subset on',
+                        type=int)
     args = parser.parse_args()
 
     # check if directory being pass
@@ -50,9 +58,14 @@ def main():
     if output_directory:
         print 'output directory = {0}'.format(output_directory)
 
+    if args.homozygous_test or args.subset:
+        hts = True
+    else:
+        hts = False
+
     vcf = VCF()
     # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory, homozygous_test=args.homozygous_test)
+    vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts)
 
     if args.filter:
         # filter columns of the vcf files
@@ -65,6 +78,12 @@ def main():
     if args.homozygous_test:
         # collect homozygous statistics
         vcf.homozygous_test(output_dir=output_directory)
+
+    if args.subset:
+        if not args.chromosome:
+            raise ValueError('Chromosome number must be provided in order to perform subset')
+
+        vcf.subset(chrom=args.chromosome, output_dir=output_directory, n_sites=args.number_sites)
 
 
 if __name__ == '__main__':

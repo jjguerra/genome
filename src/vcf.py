@@ -18,11 +18,11 @@ class VCF:
         self.vcf_files_dir = list()
         self.family_info = Family()  # this variable will be pointing to the family.Family class
 
-    def read_files(self, c_dir, homozygous_test=False):
+    def read_files(self, c_dir, homozygous_test_subset=False):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
-        :param homozygous_test: flag in order to collect a different kind of data for statistics collection
+        :param homozygous_test_subset: flag in order to collect a different kind of data for statistics collection
         """
         # save the c_dir for later use
         self.working_dir = c_dir
@@ -52,7 +52,7 @@ class VCF:
         elif self.vcf_family_id == 115:
             pass
 
-        if not homozygous_test:
+        if not homozygous_test_subset:
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
             # extract list of object in the data directory
@@ -527,3 +527,55 @@ class VCF:
         # close the files and print messages
         file_obj_write.close()
         file_obj_read.close()
+
+    def subset(self, chrom, output_dir='', n_sites=float("inf")):
+        """
+        This function subsets the vcf.gz file based on the chromosome number
+        :param chrom: chromosome
+        :param output_dir: (optional) location to output the statistics file
+        :param n_lines: the total number of sites to include in the file
+        """
+
+        print '\nsubset option selected on chrom {0}'.format(chrom)
+
+        # open the vcf file
+        file_obj_read = gzip.open(self.vcf_files_dir, 'r')
+
+        # create the output filename
+        subset_filename = 'chrom{0}.vcf.gz'.format(chrom)
+        filename = self.vcf_files_dir.replace('vcf.gz', subset_filename)
+
+        # check if output directory was provided
+        if output_dir:
+            subset_dir = os.path.join(output_dir, filename)
+        # if not provided, use the working directory
+        else:
+            subset_dir = os.path.join(self.working_dir, filename)
+
+        # output object
+        file_obj_write = gzip.open(subset_dir, 'w+')
+
+        # keep track of sites added
+        num_sites_added = 0
+
+        header = True
+        for line in file_obj_read:
+
+            if header:
+                header = False
+                file_obj_write.writelines(line)
+
+            else:
+                # split the lab on the tab operator and grab the chromosome number
+                line_chromosome = line.split('\t')[0]
+                if line_chromosome == str(chrom):
+                    file_obj_write.writelines(line)
+                    num_sites_added += 1
+                    if num_sites_added == n_sites:
+                        break
+
+        print 'total number of sites added = {0}'.format(num_sites_added)
+        print 'finished obtaining subset of the file'
+
+        file_obj_read.close()
+        file_obj_write.close()
