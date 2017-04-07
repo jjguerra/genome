@@ -486,31 +486,36 @@ class VCF:
                         raise ValueError('Some of the offspring were not found in the file')
 
                     for offspring in offspring_list:
-                        # get the offspring column index
-                        col_index = offspring_col_index_dict[offspring]
-                        # get the genotype information
-                        offspring_genotype = line_information[col_index]
+                        try:
+                            # get the offspring column index
+                            col_index = offspring_col_index_dict[offspring]
 
-                        # check if offspring is homozygous
-                        if self._is_homozygous(offspring_genotype):
-                            # if the parent and the child are homozygous on different allele,
-                            # print a warning message
-                            # write the line into the file
-                            if offspring_genotype[0] != genotype_parent[0]:
-                                num_of_wrong_snp += 1
-                                file_obj_write.writelines(line)
-                                print 'error on chrom = {0} , position = {1}: parents and offspring homozygous alleles'\
-                                      ' mismatch'.format(line_information[0], line_information[1])
-                        # if its not homozygous, make sure it has at least one allele transmitted by the parent
-                        else:
-                            first_allele, second_allele = offspring_genotype.split('/')
-                            if (first_allele not in genotype_parent_list) and\
-                                    (second_allele not in genotype_parent_list):
-                                num_of_wrong_snp += 1
-                                file_obj_write.writelines(line)
-                                msg = 'error chrom = {0} , position = {1} : parents and offspring alleles mismatch'.\
-                                    format(line_information[0], line_information[1])
-                                print msg
+                            # get the genotype information
+                            offspring_genotype = line_information[col_index]
+
+                            # check if offspring is homozygous
+                            if self._is_homozygous(offspring_genotype):
+                                # if the parent and the child are homozygous on different allele,
+                                # print a warning message
+                                # write the line into the file
+                                if offspring_genotype[0] != genotype_parent[0]:
+                                    num_of_wrong_snp += 1
+                                    file_obj_write.writelines(line)
+                                    print 'error on chrom = {0} , position = {1}: parents and offspring homozygous ' \
+                                          'alleles mismatch'.format(line_information[0], line_information[1])
+                            # if its not homozygous, make sure it has at least one allele transmitted by the parent
+                            else:
+                                first_allele, second_allele = offspring_genotype.split('/')
+                                if (first_allele not in genotype_parent_list) and\
+                                        (second_allele not in genotype_parent_list):
+                                    num_of_wrong_snp += 1
+                                    file_obj_write.writelines(line)
+                                    msg = 'error chrom = {0} , position = {1} : parents and offspring alleles mismatch'.\
+                                        format(line_information[0], line_information[1])
+                                    print msg
+                        # this is done for sites where the offspring does not have information
+                        except IndexError:
+                            pass
 
         msg = 'number of wrong SNP = {0}'.format(num_of_wrong_snp)
         print msg
