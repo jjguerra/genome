@@ -4,6 +4,7 @@ import os
 from family import Family
 from shutil import copyfile
 from snp import SNP
+import subprocess
 
 
 class VCF:
@@ -620,3 +621,6 @@ class VCF:
 
         file_obj_read.close()
         file_obj_write.close()
+
+
+

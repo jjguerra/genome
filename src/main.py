@@ -1,6 +1,7 @@
 import os
 import argparse
 from vcf import VCF
+import subprocess
 
 # current script location
 script_dir = '/'.join(os.path.realpath(__file__).split('/')[:-1])
@@ -31,6 +32,10 @@ def main():
     # optional argument
     parser.add_argument('-n', '--number_sites', help='use argument to select the number of line on which to subset on',
                         type=int)
+    # optional argument
+    parser.add_argument('-p', '--change_permission',
+                        help='use argument to change the permission of the file', )
+
     args = parser.parse_args()
 
     # check if directory being pass
@@ -68,6 +73,15 @@ def main():
     else:
         chromosome = ''
 
+    output_file_dir = ''
+    if args.change_permission:
+        if not os.path.exists(args.change_permission):
+            raise IOError('file directory = "{0}" not found'.format(args.change_permission))
+        else:
+            output_file_dir=args.change_permission
+            subprocess.call(['chmod', '-R', 'o=r', output_file_dir])
+            print 'permission of '+output_file_dir+' changed'
+
     vcf = VCF()
     # read all the vcf files for that family
     vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts, chrom=chromosome)
@@ -89,6 +103,8 @@ def main():
             raise ValueError('Chromosome number must be provided in order to perform subset')
 
         vcf.subset(chrom=args.chromosome, output_dir=output_directory, n_sites=args.number_sites)
+
+
 
 
 if __name__ == '__main__':
