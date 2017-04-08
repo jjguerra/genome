@@ -63,9 +63,14 @@ def main():
     else:
         hts = False
 
+    if args.chromosome:
+        chromosome = args.chromosome
+    else:
+        chromosome = ''
+
     vcf = VCF()
     # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts)
+    vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts, chrom=chromosome)
 
     if args.filter:
         # filter columns of the vcf files
@@ -77,13 +82,14 @@ def main():
 
     if args.homozygous_test:
         # collect homozygous statistics
-        vcf.homozygous_test(output_dir=output_directory)
+        vcf.homozygous_test(output_dir=output_directory, chrom=chromosome)
 
     if args.subset:
         if not args.chromosome:
             raise ValueError('Chromosome number must be provided in order to perform subset')
 
         vcf.subset(chrom=args.chromosome, output_dir=output_directory, n_sites=args.number_sites)
+
 
 if __name__ == '__main__':
     main()

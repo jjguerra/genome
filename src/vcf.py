@@ -18,11 +18,12 @@ class VCF:
         self.vcf_files_dir = list()
         self.family_info = Family()  # this variable will be pointing to the family.Family class
 
-    def read_files(self, c_dir, homozygous_test_subset=False):
+    def read_files(self, c_dir, homozygous_test_subset=False, chrom=''):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
         :param homozygous_test_subset: flag in order to collect a different kind of data for statistics collection
+        :param chrom: chromosome number if need of specific file with that chromosome
         """
         # save the c_dir for later use
         self.working_dir = c_dir
@@ -52,6 +53,7 @@ class VCF:
         elif self.vcf_family_id == 115:
             pass
 
+        chrom = 'chrom' + str(chrom)
         if not homozygous_test_subset:
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
@@ -91,7 +93,7 @@ class VCF:
             # loop through all the files
             for vcf_file in dir_file_list:
                 # look for the filtered.vcf.gz with the specified family id
-                if 'filtered.vcf.gz' in vcf_file and str(self.vcf_family_id) in vcf_file:
+                if ('filtered' in vcf_file) and (str(self.vcf_family_id) in vcf_file) and (chrom in vcf_file):
                     # add its information to the class variables
                     self.vcf_files = vcf_file
                     self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
@@ -411,10 +413,11 @@ class VCF:
         else:
             return False
 
-    def homozygous_test(self, output_dir=''):
+    def homozygous_test(self, output_dir='', chrom=''):
         """
         This function collect homozygous statistics from mother to offsprings
         :param output_dir: (optional) location to output the statistics file
+        :param chrom: chromosome being evaluated
         """
         print '\nhomozygous_test option selected'
 
@@ -422,7 +425,10 @@ class VCF:
         file_obj_read = gzip.open(self.vcf_files_dir, 'r')
 
         # create the statistics filename
-        filename = 'homozygous_test_' + str(self.vcf_family_id) + '.text'
+        if chrom:
+            filename = 'homozygous_test_' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
+        else:
+            filename = 'homozygous_test_' + str(self.vcf_family_id) + '.text'
 
         # check if output directory was provided
         if output_dir:
@@ -434,12 +440,14 @@ class VCF:
         # output object
         file_obj_write = open(homozygous_dir, 'w+')
 
-        # numbers of wrong snp
-        num_of_wrong_snp = 0
+        # keep track of different alleles between homozygous parent and offspring
+        mismatch_parent_offspring_homo = [0.0] * len(self.family_info.offspring)
+        # keep track of difference alleles between parent and offspring
+        mismatch_parent_offspring_all = [0.0] * len(self.family_info.offspring)
         # total numbers of sites
-        total_num_sites = 0
+        total_num_sites = float(0)
         # total number of sites evaluated
-        total_num_sites_eval = 0
+        total_num_sites_eval = float(0)
 
         # set flag to skip the header
         header = True
@@ -485,7 +493,7 @@ class VCF:
                         # Note: we can actually check for the offsprings which values were not populated
                         raise ValueError('Some of the offspring were not found in the file')
 
-                    for offspring in offspring_list:
+                    for offspring_index, offspring in enumerate(offspring_list):
                         try:
                             # get the offspring column index
                             col_index = offspring_col_index_dict[offspring]
@@ -499,39 +507,67 @@ class VCF:
                                 # print a warning message
                                 # write the line into the file
                                 if offspring_genotype[0] != genotype_parent[0]:
-                                    num_of_wrong_snp += 1
+                                    mismatch_parent_offspring_homo[offspring_index] += 1
                                     file_obj_write.writelines(line)
-                                    print 'error on chrom = {0} , position = {1}: parents and offspring homozygous ' \
+                                    print 'error on chrom = {0}, position = {1} - parents and offspring homozygous ' \
                                           'alleles mismatch'.format(line_information[0], line_information[1])
                             # if its not homozygous, make sure it has at least one allele transmitted by the parent
                             else:
                                 first_allele, second_allele = offspring_genotype.split('/')
-                                if (first_allele not in genotype_parent_list) and\
+                                if (first_allele not in genotype_parent_list) or\
                                         (second_allele not in genotype_parent_list):
-                                    num_of_wrong_snp += 1
+                                    mismatch_parent_offspring_all[offspring_index] += 1
                                     file_obj_write.writelines(line)
-                                    msg = 'error chrom = {0} , position = {1} : parents and offspring alleles mismatch'.\
+                                    msg = 'error chrom = {0}, position = {1} - parents and offspring alleles mismatch'.\
                                         format(line_information[0], line_information[1])
                                     print msg
+
                         # this is done for sites where the offspring does not have information
                         except IndexError:
                             pass
 
-        msg = 'number of wrong SNP = {0}'.format(num_of_wrong_snp)
-        print msg
-        file_obj_write.writelines(msg)
-        msg = 'total number of sites = {0}'.format(total_num_sites)
-        print msg
-        file_obj_write.writelines(msg)
+        msg = '\ntotal number of sites = {0}'.format(total_num_sites)
+        self._output_line(file_obj=file_obj_write, line_info=msg)
         msg = 'total number of sites evaluated = {0}'.format(total_num_sites_eval)
-        print msg
-        file_obj_write.writelines(msg)
+        self._output_line(file_obj=file_obj_write, line_info=msg)
+        # make a line
+        self._output_line(file_obj=file_obj_write, line_info='')
 
-        print '{0} written'.format(self.vcf_files)
+        for offspring_index, offspring in enumerate(self.family_info.offspring):
+
+            # provide offspring information
+            msg = 'offspring = {0}'.format(offspring)
+            self._output_line(file_obj=file_obj_write, line_info=msg)
+
+            # provide information on homozygous parent and offspring difference
+            msg = 'number of wrong homozygous parent and offspring SNP = {0}'.format(
+                mismatch_parent_offspring_homo[offspring_index])
+            self._output_line(file_obj=file_obj_write, line_info=msg)
+
+            ratio = mismatch_parent_offspring_homo[offspring_index]/total_num_sites_eval
+            msg = 'mismatch ratio = {0}'.format(ratio)
+            self._output_line(file_obj=file_obj_write, line_info=msg)
+
+            # provide information about homozygous parent and different offspring alleles
+            msg = 'number of wrong different alleles between parent and offspring SNP = {0}'.format(
+                mismatch_parent_offspring_all[offspring_index])
+            self._output_line(file_obj=file_obj_write, line_info=msg)
+
+            ratio = mismatch_parent_offspring_all[offspring_index]/total_num_sites_eval
+            msg = 'mismatch ratio = {0}'.format(ratio)
+            self._output_line(file_obj=file_obj_write, line_info=msg)
+            self._output_line(file_obj=file_obj_write, line_info='\n')
+
+        print '{0} written\n'.format(self.vcf_files)
 
         # close the files and print messages
         file_obj_write.close()
         file_obj_read.close()
+
+    @staticmethod
+    def _output_line(file_obj, line_info):
+        print line_info
+        file_obj.writelines(line_info + '\n')
 
     def subset(self, chrom, output_dir='', n_sites=float("inf")):
         """
@@ -579,8 +615,8 @@ class VCF:
                     if num_sites_added == n_sites:
                         break
 
-        print 'total number of sites added = {0}'.format(num_sites_added)
-        print 'finished obtaining subset of the file'
+        print 'total number of sites included = {0}'.format(num_sites_added)
+        print 'finished obtaining subset of the file\n'
 
         file_obj_read.close()
         file_obj_write.close()
