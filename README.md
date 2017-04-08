@@ -1,6 +1,6 @@
 # genome
 ```
-usage: main.py [-h] [-d DIRECTORY] [-f] [-m] [-o OUTPUT] [-ht] [=p FILE_DIRECTORY]
+usage: main.py [-h] [-d DIRECTORY] [-f] [-m] [-o OUTPUT] [-ht]
 
 optional arguments: 
   -h, --help            show this help message and exit
@@ -14,6 +14,4 @@ optional arguments:
                         directory where to output the filtered or merged files
   -ht, --homozygous_test
                         use argument to collect homozygote statistics
-  -p, --change_permission
-                        use argument to change permission of the specified file
 ```

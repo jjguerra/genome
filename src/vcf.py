@@ -201,6 +201,8 @@ class VCF:
             file_obj_read.close()
             file_obj_write.close()
 
+            self._change_file_permission(file_directory=new_directory)
+
     def _create_base_file(self):
         """
         This function create the base vcf to which to add or merged onto the other vcf files
@@ -219,6 +221,8 @@ class VCF:
         # create a reference vcf
         vcf_file_dir = self.get_vcfs_dir(vcf_filename, filtered=True)
         copyfile(vcf_file_dir, ref_file_dir)
+
+        self._change_file_permission(file_directory=ref_file_dir)
 
         return ref_file_dir, ref_filename, vcf_filename
 
@@ -395,9 +399,6 @@ class VCF:
 
                 print '\tfinished merging {0}'.format(vcf_file)
 
-                if n_file == 5:
-                    exit(0)
-
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
 
     @staticmethod
@@ -565,6 +566,8 @@ class VCF:
         file_obj_write.close()
         file_obj_read.close()
 
+        self._change_file_permission(file_directory=homozygous_dir)
+
     @staticmethod
     def _output_line(file_obj, line_info):
         print line_info
@@ -622,5 +625,12 @@ class VCF:
         file_obj_read.close()
         file_obj_write.close()
 
+        self._change_file_permission(file_directory=subset_dir)
 
-
+    @staticmethod
+    def _change_file_permission(file_directory=''):
+        """
+        This function is used in order to change the file permission of any file to o=r
+        :param file_directory: 
+        """
+        subprocess.call(['chmod', '-R', 'o=r', file_directory])
