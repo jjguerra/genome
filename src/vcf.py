@@ -542,6 +542,8 @@ class VCF:
                                     file_obj_write.writelines(line)
                                     print 'error on chrom = {0}, position = {1} - parents and offspring homozygous ' \
                                           'alleles mismatch'.format(line_information[0], line_information[1])
+                                    print 'offspring = {0}'.format(offspring)
+                                    print line
                             # if its not homozygous, make sure it has at least one allele transmitted by the parent
                             else:
                                 first_allele, second_allele = offspring_genotype.split('/')
@@ -552,6 +554,8 @@ class VCF:
                                     msg = 'error chrom = {0}, position = {1} - parents and offspring alleles mismatch'.\
                                         format(line_information[0], line_information[1])
                                     print msg
+                                    print 'offspring = {0}'.format(offspring)
+                                    print line
 
                         # this is done for sites where the offspring does not have information
                         except IndexError:
