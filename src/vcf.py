@@ -44,13 +44,22 @@ class VCF:
         elif self.vcf_family_id == 89:
             self.family_info = Family(parent='089-001', offspring=['089-007'], other=['089-005', '089-006', '089-009'])
         elif self.vcf_family_id == 95:
-            pass
+            # 1st possibility
+            self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095-012',
+                                                                                      '095-013'])
+            # # 2nd possibility
+            # self.family_info = Family(parent='095-010', offspring=['095-012'], other=['095-005', '095-002', '095-047',
+            #                                                                           '095-013'])
         elif self.vcf_family_id == 97:
-            pass
+            # 1nd possibility
+            self.family_info = Family(parent='097-002', offspring=['097-006'], other=['097-001', '097-003', '097-005'])
         elif self.vcf_family_id == 109:
+            # 1st possibility
             self.family_info = Family(parent='109-003', offspring=['109-001', '109-002'], other=['109-004'])
+            # 2nd possibility
+            # self.family_info = Family(parent='109-001', offspring=['109-004'], other=['109-002', '109-003'])
         elif self.vcf_family_id == 110:
-            pass
+            self.family_info = Family(parent='110-001', offspring=['110-003', '110-004', '110-005'])
         elif self.vcf_family_id == 115:
             self.family_info = Family(parent='115-004', offspring=['115-001', '115-002', '115-003',
                                                                    '115-005', '115-006'])
