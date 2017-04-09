@@ -54,7 +54,11 @@ class VCF:
         elif self.vcf_family_id == 115:
             pass
 
-        chrom = 'chrom' + str(chrom)
+        # check if chromosome number was passed
+        if chrom:
+            # add the right definition for file name
+            chrom = 'chrom' + str(chrom)
+
         if not homozygous_test_subset:
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
@@ -94,10 +98,19 @@ class VCF:
             # loop through all the files
             for vcf_file in dir_file_list:
                 # look for the filtered.vcf.gz with the specified family id
-                if ('filtered' in vcf_file) and (str(self.vcf_family_id) in vcf_file) and (chrom in vcf_file):
-                    # add its information to the class variables
-                    self.vcf_files = vcf_file
-                    self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
+                if ('filtered' in vcf_file) and (str(self.vcf_family_id) in vcf_file):
+                    # check if the chromosome was pass
+                    if chrom:
+                        # if chromosome was provided, make sure that the file has it
+                        if chrom in vcf_file:
+                            # add its information to the class variables
+                            self.vcf_files = vcf_file
+                            self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
+
+                    else:
+                        # add its information to the class variables
+                        self.vcf_files = vcf_file
+                        self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
 
     def get_vcfs(self, filename='', filtered=False):
         """
@@ -444,7 +457,7 @@ class VCF:
 
         # keep track of different alleles between homozygous parent and offspring
         mismatch_parent_offspring_homo = [0.0] * len(self.family_info.offspring)
-        # keep track of difference alleles between parent and offspring
+        # keep track of different alleles between parent and offspring
         mismatch_parent_offspring_all = [0.0] * len(self.family_info.offspring)
         # total numbers of sites
         total_num_sites = float(0)
@@ -453,6 +466,9 @@ class VCF:
 
         # set flag to skip the header
         header = True
+
+        # keep the parent column index
+        parent_col_index = ''
 
         # read the file line by line
         for line in file_obj_read:
@@ -463,6 +479,33 @@ class VCF:
                 header_columns = line.split('\t')
                 file_obj_write.writelines(line)
 
+                parent_number = self.family_info.parent
+
+                # loop through all the element of the header_columns to find the right col index of the parent
+                for header_index, header_info in enumerate(header_columns):
+                    if parent_number in header_info:
+                        parent_col_index = header_index
+                        break
+
+                if parent_col_index == '':
+                    raise ValueError('The parent was not found in the vcf file')
+
+                # obtain a list of offspring IDs
+                offspring_list = self.family_info.offspring
+
+                # for each offspring, find their column in the vcf.gz file and make a dictionary where the key
+                # is the offspring and its value is the column
+                offspring_col_index_dict = dict()
+                for offspring in offspring_list:
+                    for index, columns in enumerate(header_columns):
+                        if offspring in columns:
+                            offspring_col_index_dict[offspring] = index
+                            break
+
+                if len(offspring_col_index_dict.keys()) != len(offspring_list):
+                    # Note: we can actually check for the offsprings which values were not populated
+                    raise ValueError('Some of the offspring were not found in the vcf file')
+
             # starting from the second line
             else:
                 total_num_sites += 1
@@ -470,30 +513,15 @@ class VCF:
                 line_information = line.split('\t')
 
                 # parse the genotypes of parent
-                genotype_parent = line_information[4]
+                genotype_parent = line_information[parent_col_index]
                 # use for a test later on
-                genotype_parent_list = line_information[4].split('/')
+                genotype_parent_list = line_information[parent_col_index].split('/')
 
                 # check if the parent's genotype was provided since there are cases when it is not.
                 # if it is then check whether it is homozygous
                 if genotype_parent and self._is_homozygous(genotype=genotype_parent):
                     # increased sites evaluated
                     total_num_sites_eval += 1
-                    # obtain a list of offspring IDs
-                    offspring_list = self.family_info.offspring
-
-                    # for each offspring, find their column in the vcf.gz file and make a dictionary where the key
-                    # is the offspring and its value is the column
-                    offspring_col_index_dict = dict()
-                    for offspring in offspring_list:
-                        for index, columns in enumerate(header_columns):
-                            if offspring in columns:
-                                offspring_col_index_dict[offspring] = index
-                                break
-
-                    if len(offspring_col_index_dict.keys()) != len(offspring_list):
-                        # Note: we can actually check for the offsprings which values were not populated
-                        raise ValueError('Some of the offspring were not found in the file')
 
                     for offspring_index, offspring in enumerate(offspring_list):
                         try:
@@ -501,7 +529,7 @@ class VCF:
                             col_index = offspring_col_index_dict[offspring]
 
                             # get the genotype information
-                            offspring_genotype = line_information[col_index]
+                            offspring_genotype = line_information[col_index].replace('\n', '')
 
                             # check if offspring is homozygous
                             if self._is_homozygous(offspring_genotype):
@@ -516,7 +544,7 @@ class VCF:
                             # if its not homozygous, make sure it has at least one allele transmitted by the parent
                             else:
                                 first_allele, second_allele = offspring_genotype.split('/')
-                                if (first_allele not in genotype_parent_list) or\
+                                if (first_allele not in genotype_parent_list) and\
                                         (second_allele not in genotype_parent_list):
                                     mismatch_parent_offspring_all[offspring_index] += 1
                                     file_obj_write.writelines(line)
@@ -542,7 +570,7 @@ class VCF:
             self._output_line(file_obj=file_obj_write, line_info=msg)
 
             # provide information on homozygous parent and offspring difference
-            msg = 'number of wrong homozygous parent and offspring SNP = {0}'.format(
+            msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
                 mismatch_parent_offspring_homo[offspring_index])
             self._output_line(file_obj=file_obj_write, line_info=msg)
 
@@ -551,7 +579,7 @@ class VCF:
             self._output_line(file_obj=file_obj_write, line_info=msg)
 
             # provide information about homozygous parent and different offspring alleles
-            msg = 'number of wrong different alleles between parent and offspring SNP = {0}'.format(
+            msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
                 mismatch_parent_offspring_all[offspring_index])
             self._output_line(file_obj=file_obj_write, line_info=msg)
 

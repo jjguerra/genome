@@ -70,7 +70,7 @@ def main():
 
     vcf = VCF()
     # read all the vcf files for that family
-    vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts)
+    vcf.read_files(c_dir=current_directory, homozygous_test_subset=hts, chrom=chromosome)
 
     if args.filter:
         # filter columns of the vcf files
