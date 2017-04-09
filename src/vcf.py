@@ -90,6 +90,7 @@ class VCF:
                         # add to the object for later processing
                         self.vcf_files.append(member_file)
                         self.vcf_files_dir.append(member_dir)
+
         # for stats collection, only look for the cvf.gz file
         else:
             # get all the files in the given working directory
