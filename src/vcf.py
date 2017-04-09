@@ -48,11 +48,12 @@ class VCF:
         elif self.vcf_family_id == 97:
             pass
         elif self.vcf_family_id == 109:
-            self.family_info = Family(parent='109-003', offspring=['109-001','109-002'], other=['109-004'])
+            self.family_info = Family(parent='109-003', offspring=['109-001', '109-002'], other=['109-004'])
         elif self.vcf_family_id == 110:
             pass
         elif self.vcf_family_id == 115:
-            self.family_info = Family(parent='115-004', offspring=['115-001', '115-002','115-003', '115-005','115-006'], other=[])
+            self.family_info = Family(parent='115-004', offspring=['115-001', '115-002', '115-003',
+                                                                   '115-005', '115-006'])
 
         # check if chromosome number was passed
         if chrom:
