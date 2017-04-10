@@ -45,11 +45,11 @@ class VCF:
             self.family_info = Family(parent='089-001', offspring=['089-007'], other=['089-005', '089-006', '089-009'])
         elif self.vcf_family_id == 95:
             # 1st possibility
-            self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095-012',
-                                                                                      '095-013'])
-            # # 2nd possibility
-            # self.family_info = Family(parent='095-010', offspring=['095-012'], other=['095-005', '095-002', '095-047',
+            # self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095-012',
             #                                                                           '095-013'])
+            # # 2nd possibility
+            self.family_info = Family(parent='095-010', offspring=['095-012'], other=['095-005', '095-002', '095-047',
+                                                                                      '095-013'])
         elif self.vcf_family_id == 97:
             # 1nd possibility
             self.family_info = Family(parent='097-002', offspring=['097-006'], other=['097-001', '097-003', '097-005'])
@@ -77,29 +77,30 @@ class VCF:
             _, family_member_folder_list, _ = os.walk(self.working_dir).next()
 
             for member_folder in family_member_folder_list:
-                # complete directory location
-                cl_mem_folder = os.path.join(self.working_dir, member_folder)
-                # actual location of the vcf.gz files
-                data_dir = os.path.join(cl_mem_folder, 'analysis')
-                # get all the files in the analysis location
-                # this line only keeps the files
-                _, _, member_file_list = os.walk(data_dir).next()
+                if 'Sample_' in member_folder:
+                    # complete directory location
+                    cl_mem_folder = os.path.join(self.working_dir, member_folder)
+                    # actual location of the vcf.gz files
+                    data_dir = os.path.join(cl_mem_folder, 'analysis')
+                    # get all the files in the analysis location
+                    # this line only keeps the files
+                    _, _, member_file_list = os.walk(data_dir).next()
+                    
+                    # check if there exists vcf.gz files or any other files
+                    # this check that the list is not empty
+                    if len(member_file_list) == 0:
+                        raise ValueError('directory = {0} is empty'.format(data_dir))
 
-                # check if there exists vcf.gz files or any other files
-                # this check that the list is not empty
-                if len(member_file_list) == 0:
-                    raise ValueError('directory = {0} is empty'.format(data_dir))
+                    for member_file in member_file_list:
+                        # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
+                        # version has already been created
+                        if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
+                            # create a variable with the whole path/directory of the file
+                            member_dir = os.path.join(data_dir, member_file)
 
-                for member_file in member_file_list:
-                    # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
-                    # version has already been created
-                    if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
-                        # create a variable with the whole path/directory of the file
-                        member_dir = os.path.join(data_dir, member_file)
-
-                        # add to the object for later processing
-                        self.vcf_files.append(member_file)
-                        self.vcf_files_dir.append(member_dir)
+                            # add to the object for later processing
+                            self.vcf_files.append(member_file)
+                            self.vcf_files_dir.append(member_dir)
 
         # for stats collection, only look for the cvf.gz file
         else:
