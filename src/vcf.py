@@ -451,6 +451,8 @@ class VCF:
         # open the vcf file
         file_obj_read = gzip.open(self.vcf_files_dir, 'r')
 
+        print 'reading vcf file = {0}'.format(self.vcf_files)
+
         # create the statistics filename
         if chrom:
             filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
@@ -489,6 +491,7 @@ class VCF:
             if header:
                 header = False
                 header_columns = line.split('\t')
+                print line
                 file_obj_write.writelines(line)
 
                 parent_number = self.family_info.parent
