@@ -55,9 +55,9 @@ class VCF:
             self.family_info = Family(parent='097-002', offspring=['097-006'], other=['097-001', '097-003', '097-005'])
         elif self.vcf_family_id == 109:
             # 1st possibility
-            self.family_info = Family(parent='109-003', offspring=['109-001', '109-002'], other=['109-004'])
+            # self.family_info = Family(parent='109-003', offspring=['109-001', '109-002'], other=['109-004'])
             # 2nd possibility
-            # self.family_info = Family(parent='109-001', offspring=['109-004'], other=['109-002', '109-003'])
+            self.family_info = Family(parent='109-001', offspring=['109-004'], other=['109-002', '109-003'])
         elif self.vcf_family_id == 110:
             self.family_info = Family(parent='110-001', offspring=['110-003', '110-004', '110-005'])
         elif self.vcf_family_id == 115:
@@ -452,9 +452,9 @@ class VCF:
 
         # create the statistics filename
         if chrom:
-            filename = 'homozygous_test_' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
+            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
         else:
-            filename = 'homozygous_test_' + str(self.vcf_family_id) + '.text'
+            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '.text'
 
         # check if output directory was provided
         if output_dir:
@@ -523,8 +523,12 @@ class VCF:
                 # parse the line
                 line_information = line.split('\t')
 
-                # parse the genotypes of parent
-                genotype_parent = line_information[parent_col_index]
+                try:
+                    # parse the genotypes of parent
+                    genotype_parent = line_information[parent_col_index]
+                # sometimes there might not be a genotype value for the parent in one of the sites
+                except IndexError:
+                    pass
                 # use for a test later on
                 genotype_parent_list = line_information[parent_col_index].split('/')
 
