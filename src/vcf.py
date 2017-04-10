@@ -575,7 +575,7 @@ class VCF:
                               
                 # sometimes there might not be a genotype value for the parent in one of the sites
                 except IndexError:
-                pass
+                    pass
 
         msg = '\ntotal number of sites = {0}'.format(total_num_sites)
         self._output_line(file_obj=file_obj_write, line_info=msg)
