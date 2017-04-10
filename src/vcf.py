@@ -563,7 +563,8 @@ class VCF:
                                             (second_allele not in genotype_parent_list):
                                         mismatch_parent_offspring_all[offspring_index] += 1
                                         file_obj_write.writelines(line)
-                                        msg = 'error chrom = {0}, position = {1} - parents and offspring alleles mismatch'.\
+                                        msg = 'error chrom = {0}, position = {1} - parents and offspring alleles ' \
+                                              'mismatch'.\
                                             format(line_information[0], line_information[1])
                                         print msg
                                         print 'offspring = {0}'.format(offspring)
@@ -572,7 +573,7 @@ class VCF:
                             # this is done for sites where the offspring does not have information
                             except IndexError:
                                 pass
-                              
+
                 # sometimes there might not be a genotype value for the parent in one of the sites
                 except IndexError:
                     pass
@@ -584,30 +585,35 @@ class VCF:
         # make a line
         self._output_line(file_obj=file_obj_write, line_info='')
 
-        for offspring_index, offspring in enumerate(self.family_info.offspring):
+        # if there were no sites evaluated, then its done
+        if total_num_sites_eval == 0:
+            pass
 
-            # provide offspring information
-            msg = 'offspring = {0}'.format(offspring)
-            self._output_line(file_obj=file_obj_write, line_info=msg)
+        else:
+            for offspring_index, offspring in enumerate(self.family_info.offspring):
 
-            # provide information on homozygous parent and offspring difference
-            msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
-                mismatch_parent_offspring_homo[offspring_index])
-            self._output_line(file_obj=file_obj_write, line_info=msg)
+                # provide offspring information
+                msg = 'offspring = {0}'.format(offspring)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
 
-            ratio = mismatch_parent_offspring_homo[offspring_index]/total_num_sites_eval
-            msg = 'mismatch ratio = {0}'.format(ratio)
-            self._output_line(file_obj=file_obj_write, line_info=msg)
+                # provide information on homozygous parent and offspring difference
+                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
+                    mismatch_parent_offspring_homo[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
 
-            # provide information about homozygous parent and different offspring alleles
-            msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
-                mismatch_parent_offspring_all[offspring_index])
-            self._output_line(file_obj=file_obj_write, line_info=msg)
+                ratio = mismatch_parent_offspring_homo[offspring_index]/total_num_sites_eval
+                msg = 'mismatch ratio = {0}'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
 
-            ratio = mismatch_parent_offspring_all[offspring_index]/total_num_sites_eval
-            msg = 'mismatch ratio = {0}'.format(ratio)
-            self._output_line(file_obj=file_obj_write, line_info=msg)
-            self._output_line(file_obj=file_obj_write, line_info='\n')
+                # provide information about homozygous parent and different offspring alleles
+                msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
+                    mismatch_parent_offspring_all[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                ratio = mismatch_parent_offspring_all[offspring_index]/total_num_sites_eval
+                msg = 'mismatch ratio = {0}'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+                self._output_line(file_obj=file_obj_write, line_info='\n')
 
         print '{0} written\n'.format(self.vcf_files)
 
