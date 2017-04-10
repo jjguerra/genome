@@ -526,54 +526,56 @@ class VCF:
                 try:
                     # parse the genotypes of parent
                     genotype_parent = line_information[parent_col_index]
+
+                    # use for a test later on
+                    genotype_parent_list = line_information[parent_col_index].split('/')
+
+                    # check if the parent's genotype was provided since there are cases when it is not.
+                    # if it is then check whether it is homozygous
+                    if genotype_parent and self._is_homozygous(genotype=genotype_parent):
+                        # increased sites evaluated
+                        total_num_sites_eval += 1
+
+                        for offspring_index, offspring in enumerate(offspring_list):
+                            try:
+                                # get the offspring column index
+                                col_index = offspring_col_index_dict[offspring]
+
+                                # get the genotype information
+                                offspring_genotype = line_information[col_index].replace('\n', '')
+
+                                # check if offspring is homozygous
+                                if self._is_homozygous(offspring_genotype):
+                                    # if the parent and the child are homozygous on different allele,
+                                    # print a warning message
+                                    # write the line into the file
+                                    if offspring_genotype[0] != genotype_parent[0]:
+                                        mismatch_parent_offspring_homo[offspring_index] += 1
+                                        file_obj_write.writelines(line)
+                                        print 'error on chrom = {0}, position = {1} - parents and offspring homozygous ' \
+                                              'alleles mismatch'.format(line_information[0], line_information[1])
+                                        print 'offspring = {0}'.format(offspring)
+                                        print line
+                                # if its not homozygous, make sure it has at least one allele transmitted by the parent
+                                else:
+                                    first_allele, second_allele = offspring_genotype.split('/')
+                                    if (first_allele not in genotype_parent_list) and\
+                                            (second_allele not in genotype_parent_list):
+                                        mismatch_parent_offspring_all[offspring_index] += 1
+                                        file_obj_write.writelines(line)
+                                        msg = 'error chrom = {0}, position = {1} - parents and offspring alleles mismatch'.\
+                                            format(line_information[0], line_information[1])
+                                        print msg
+                                        print 'offspring = {0}'.format(offspring)
+                                        print line
+
+                            # this is done for sites where the offspring does not have information
+                            except IndexError:
+                                pass
+                              
                 # sometimes there might not be a genotype value for the parent in one of the sites
                 except IndexError:
-                    pass
-                # use for a test later on
-                genotype_parent_list = line_information[parent_col_index].split('/')
-
-                # check if the parent's genotype was provided since there are cases when it is not.
-                # if it is then check whether it is homozygous
-                if genotype_parent and self._is_homozygous(genotype=genotype_parent):
-                    # increased sites evaluated
-                    total_num_sites_eval += 1
-
-                    for offspring_index, offspring in enumerate(offspring_list):
-                        try:
-                            # get the offspring column index
-                            col_index = offspring_col_index_dict[offspring]
-
-                            # get the genotype information
-                            offspring_genotype = line_information[col_index].replace('\n', '')
-
-                            # check if offspring is homozygous
-                            if self._is_homozygous(offspring_genotype):
-                                # if the parent and the child are homozygous on different allele,
-                                # print a warning message
-                                # write the line into the file
-                                if offspring_genotype[0] != genotype_parent[0]:
-                                    mismatch_parent_offspring_homo[offspring_index] += 1
-                                    file_obj_write.writelines(line)
-                                    print 'error on chrom = {0}, position = {1} - parents and offspring homozygous ' \
-                                          'alleles mismatch'.format(line_information[0], line_information[1])
-                                    print 'offspring = {0}'.format(offspring)
-                                    print line
-                            # if its not homozygous, make sure it has at least one allele transmitted by the parent
-                            else:
-                                first_allele, second_allele = offspring_genotype.split('/')
-                                if (first_allele not in genotype_parent_list) and\
-                                        (second_allele not in genotype_parent_list):
-                                    mismatch_parent_offspring_all[offspring_index] += 1
-                                    file_obj_write.writelines(line)
-                                    msg = 'error chrom = {0}, position = {1} - parents and offspring alleles mismatch'.\
-                                        format(line_information[0], line_information[1])
-                                    print msg
-                                    print 'offspring = {0}'.format(offspring)
-                                    print line
-
-                        # this is done for sites where the offspring does not have information
-                        except IndexError:
-                            pass
+                pass
 
         msg = '\ntotal number of sites = {0}'.format(total_num_sites)
         self._output_line(file_obj=file_obj_write, line_info=msg)
