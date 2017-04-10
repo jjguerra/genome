@@ -633,7 +633,7 @@ class VCF:
         subset_filename = 'chrom{0}.vcf.gz'.format(chrom)
 
         filename = self.vcf_files.replace('vcf.gz', subset_filename)
-        print filename
+        print 'subset filename ={0}'.format(filename)
 
         # check if output directory was provided
         if output_dir:
@@ -642,7 +642,7 @@ class VCF:
         else:
             subset_dir = os.path.join(self.working_dir, filename)
 
-        print subset_dir
+        print 'subset directory = {0}'.format(subset_dir)
 
         # output object
         file_obj_write = gzip.open(subset_dir, 'w+')
