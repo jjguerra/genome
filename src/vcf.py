@@ -63,12 +63,16 @@ class VCF:
         elif self.vcf_family_id == 115:
             self.family_info = Family(parent='115-004', offspring=['115-001', '115-002', '115-003',
                                                                    '115-005', '115-006'])
+        else:
+            raise ValueError('Family ID not on records. Family ID read = {0}, possible family IDs = \'54, 85, 89, 95,'
+                             '97,109,110,115\'')
 
         # check if chromosome number was passed
         if chrom:
             # add the right definition for file name
             chrom = 'chrom' + str(chrom)
 
+        # check if it is a (test or a subject) or if it is a (filtering or merging)
         if not homozygous_test_subset:
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054
             # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
@@ -104,6 +108,7 @@ class VCF:
 
         # for stats collection, only look for the cvf.gz file
         else:
+
             # get all the files in the given working directory
             _, _, dir_file_list = os.walk(self.working_dir).next()
 
@@ -123,6 +128,9 @@ class VCF:
                         # add its information to the class variables
                         self.vcf_files = vcf_file
                         self.vcf_files_dir = os.path.join(self.working_dir, vcf_file)
+
+            if len(self.vcf_files) == 0:
+                raise IOError('No vcf file found in dir = {0}'.format(self.working_dir))
 
     def get_vcfs(self, filename='', filtered=False):
         """
