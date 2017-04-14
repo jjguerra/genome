@@ -642,6 +642,10 @@ class VCF:
         self._output_line(file_obj=file_obj_write, line_info=msg)
         msg = 'total number of sites evaluated = {0}'.format(total_num_sites_eval)
         self._output_line(file_obj=file_obj_write, line_info=msg)
+        msg = 'total number of sites evaluated = {0} (multi-alleles - homozygous)'.format(total_num_multi_all_sites_eval_homo)
+        self._output_line(file_obj=file_obj_write, line_info=msg)
+        msg = 'total number of sites evaluated = {0} (multi-alleles - diff)'.format(total_num_multi_all_sites_eval_diff)
+        self._output_line(file_obj=file_obj_write, line_info=msg)
         # make a line
         self._output_line(file_obj=file_obj_write, line_info='')
 
