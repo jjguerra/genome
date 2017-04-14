@@ -676,7 +676,7 @@ class VCF:
                 self._output_line(file_obj=file_obj_write, line_info='\n')
 
                 # provide information on homozygous parent and offspring difference for multi alleles
-                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
+                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0} (multi-alleles)'.format(
                     mismatch_parent_offspring_homo_multiall[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
@@ -686,7 +686,7 @@ class VCF:
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
                 # provide information about homozygous parent and different offspring alleles for multi alleles
-                msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
+                msg = 'number of wrong alleles between parent and offspring SNP = {0} (multi-alleles)'.format(
                     mismatch_parent_offspring_all_multiall[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
@@ -697,7 +697,7 @@ class VCF:
                 self._output_line(file_obj=file_obj_write, line_info='\n')
 
                 # provide information on homozygous parent and offspring difference for multi alleles
-                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
+                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0} (multi-alleles)'.format(
                     mismatch_parent_offspring_homo_multiall[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
