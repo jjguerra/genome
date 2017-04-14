@@ -207,7 +207,8 @@ class SNP:
 
             # if different CHROM and POS values then write on the line whichever is smaller
             elif self.position < n_position:
-                self.line = self.base_snp
+                # need to still add the missing information for the comp file
+                self.line = self.base_snp.replace('\n', '\t\n')
                 self.base_written = True
             else:
                 self.line = self._comp_line_format(line=additional_snp_info, n_col=n_col)
@@ -215,7 +216,8 @@ class SNP:
 
         # if different CHROM then write on the line whichever is smaller
         elif self.chromosome < n_chrom:
-            self.line = self.base_snp
+            # need to still add the missing information for the comp file
+            self.line = self.base_snp.replace('\n', '\t\n')
             self.base_written = True
         else:
             self.line = self._comp_line_format(line=additional_snp_info, n_col=n_col)

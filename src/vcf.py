@@ -394,8 +394,10 @@ class VCF:
                                     reset_comp_line = True
 
                             else:
+                                # need to still add the missing information for the comp file
+                                n_line = base_line.replace('\n', '\t\n')
                                 # write the base information to the tmp file
-                                tmp_file_obj.write(base_line)
+                                tmp_file_obj.write(n_line)
                                 # delete the content in the base line
                                 reset_base_line = True
 
@@ -448,20 +450,24 @@ class VCF:
         else:
             return False
 
-    def homozygous_test(self, output_dir='', chrom=''):
+    def tests(self, output_dir='', chrom='', homozygous_test=False):
         """
         This function collect homozygous statistics from mother to offsprings
         :param output_dir: (optional) location to output the statistics file
         :param chrom: chromosome being evaluated
+        :param homozygous_test: True if homozygous test being conducted, False if phasing being conducted
         """
-        print '\nhomozygous_test option selected'
+        if homozygous_test:
+            print '\nhomozygous_test option selected'
+        else:
+            print '\nphasing_test option selected'
 
         # open the vcf file
         file_obj_read = gzip.open(self.vcf_files_dir, 'r')
 
         print 'reading vcf file = {0}'.format(self.vcf_files)
 
-        # create the statistics filename
+        # create the statistics filename based on whether testing is being done considering a chromosome specified file
         if chrom:
             filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
         else:
@@ -489,7 +495,7 @@ class VCF:
         # set flag to skip the header
         header = True
 
-        # keep the parent column index
+        # keep track of the parent column index
         parent_col_index = ''
 
         # read the file line by line
@@ -564,7 +570,7 @@ class VCF:
                                     if offspring_genotype[0] != genotype_parent[0]:
                                         mismatch_parent_offspring_homo[offspring_index] += 1
                                         file_obj_write.writelines(line)
-                                        print 'error on chrom = {0}, position = {1} - parents and offspring homozygous ' \
+                                        print 'error on chrom = {0}, position = {1} - parents and offspring homozygous' \
                                               'alleles mismatch'.format(line_information[0], line_information[1])
                                         print 'offspring = {0}'.format(offspring)
                                         print line
