@@ -46,11 +46,11 @@ class VCF:
             self.family_info = Family(parent='089-001', offspring=['089-007'], other=['089-005', '089-006', '089-009'])
         elif self.vcf_family_id == 95:
             # 1st possibility
-            # self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095-012',
+            # self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095- 12',
             #                                                                           '095-013'])
             # # 2nd possibility
-            self.family_info = Family(parent='095-010', offspring=['095-012'], other=['095-005', '095-002', '095-047',
-                                                                                      '095-013'])
+            self.family_info = Family(parent='095-010', offspring=['095-12'], other=['095-005', '095-002', '095-047',
+                                                                                     '095-013'])
         elif self.vcf_family_id == 97:
             # 1nd possibility
             self.family_info = Family(parent='097-002', offspring=['097-006'], other=['097-001', '097-003', '097-005'])
@@ -508,6 +508,8 @@ class VCF:
         total_num_multi_all_sites_eval_homo = np.float64(0)
         # total number of multi-alleles sites for homozygous parent and heterogeneous offspring
         total_num_multi_all_sites_eval_diff = np.float64(0)
+        # keep track of lines added to the multi-alleles file
+        muti_allele_added_line = list()
 
         # set flag to skip the header
         header = True
@@ -530,6 +532,7 @@ class VCF:
                 header_columns = line.split('\t')
                 print line
                 file_obj_write.writelines(line)
+                file_obj_write_multi.writelines(line)
 
                 parent_number = self.family_info.parent
 
@@ -608,7 +611,9 @@ class VCF:
                                             # collect statistics
                                             mismatch_parent_offspring_homo_multiall[offspring_index] += np.float64(1)
                                             total_num_multi_all_sites_eval_homo += np.float64(1)
-                                            file_obj_write_multi.writelines(line)
+                                            if line not in muti_allele_added_line:
+                                                file_obj_write_multi.writelines(line)
+                                                muti_allele_added_line.append(line)
                                 # if its not homozygous, make sure it has at least one allele transmitted by the parent
                                 else:
                                     first_allele, second_allele = offspring_genotype.split('/')
@@ -628,7 +633,9 @@ class VCF:
                                             # collect statistics
                                             mismatch_parent_offspring_all_multiall[offspring_index] += np.float64(1)
                                             total_num_multi_all_sites_eval_diff += np.float64(1)
-                                            file_obj_write_multi.writelines(line)
+                                            if line not in muti_allele_added_line:
+                                                file_obj_write_multi.writelines(line)
+                                                muti_allele_added_line.append(line)
 
                             # this is done for sites where the offspring does not have information
                             except IndexError:
@@ -637,6 +644,8 @@ class VCF:
                 # sometimes there might not be a genotype value for the parent in one of the sites
                 except IndexError:
                     pass
+
+        print '{0}\n'.format(self.vcf_files)
 
         msg = '\ntotal number of sites = {0}'.format(total_num_sites)
         self._output_line(file_obj=file_obj_write, line_info=msg)
@@ -724,8 +733,6 @@ class VCF:
                 msg = 'mismatch ratio = {0} (for multi-alleles sites)'.format(ratio)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
                 self._output_line(file_obj=file_obj_write, line_info='\n')
-
-        print '{0} written\n'.format(self.vcf_files)
 
         # close the files and print messages
         file_obj_write.close()
