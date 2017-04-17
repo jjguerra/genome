@@ -45,29 +45,31 @@ if __name__ == '__main__':
                     vcf_files_dir.append(member_dir)
                     vcf_working_dir.append(data_dir)
 
-    for vcf_working_dir, vcf_dir, vcf_file in zip(vcf_working_dir, vcf_files_dir, vcf_files):
+    for vwd, vcf_dir, vcf_file in zip(vcf_working_dir, vcf_files_dir, vcf_files):
         print 'processing {0}'.format(vcf_file)
 
         # remove old filtered file
-        for fl in glob.glob(vcf_working_dir + '/*.filtered.vcf.gz'):
+        for fl in glob.glob(vwd + '/*.filtered.vcf.gz'):
             print 'removing {0}'.format(fl)
             os.remove(fl)
         # remove wrong old tbi file
-        for fl in glob.glob(vcf_working_dir + '/*vcf.gz.tbi'):
+        for fl in glob.glob(vwd + '/*vcf.gz.tbi'):
             print 'removing {0}'.format(fl)
             os.remove(fl)
 
         # create the name for the unzip vcf file
         vcf_filename = vcf_dir.replace('.gz', '')
-        subprocess.call(['zcat', vcf_dir, '>', vcf_filename])
+        _cmd = 'zcat ' + vcf_dir + ' > ' + vcf_filename
+        subprocess.call([_cmd])
 
         # remove old vcf.gz file
-        subprocess.call(['rm -rf', vcf_dir])
+        _cmd = 'rm -rf ' + vcf_dir
+        subprocess.call([_cmd])
 
         # gz zip the new file with gbzip
-        subprocess.call(['bgzip', vcf_filename])
+        _cmd = 'bgzip ' + vcf_filename
+        subprocess.call([_cmd])
 
         # tabix the new vcf.gz file
-        subprocess.call(['tabix -p vcf', vcf_dir])
-
-        exit(0)
+        _cmd = 'tabix -p vcf ' + vcf_dir
+        subprocess.call([_cmd])
