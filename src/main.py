@@ -64,7 +64,10 @@ def main():
                         required=True)
     # optional argument
     parser.add_argument('-f', '--filter', action='store_true',
-                        help='use argument to keep the following columns: CHROM, POS, REF, ALT, genotype info')
+                        help='use argument to keep the following columns: CHROM, POS, REF, ALT, genotype info. \n'
+                             'Note: if option selection, the -d can either be the vcf.gz or the parent directory. '
+                             'If vcf.gz, it will perform filtering on that file. Else, it will perform filtering on'
+                             'all the files in the hierarchical directory.')
     # optional argument
     parser.add_argument('-m', '--merge', action='store_true',
                         help='use argument to merge all filtered.vcf.gz files in the parent directory')

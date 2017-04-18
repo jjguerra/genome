@@ -31,7 +31,10 @@ class VCF:
         self.working_dir = c_dir
 
         # the number in the Sample_0XX
-        self.vcf_family_id = int(c_dir.split('/')[-1].replace('Sample_', ''))
+        if 'vcf.gz' in c_dir:
+            self.vcf_family_id = int(c_dir.split('/')[-1].split('.')[0])
+        else:
+            self.vcf_family_id = int(c_dir.split('/')[-1].replace('Sample_', ''))
 
         # check if c_dir is the right parent directory
         if not self.vcf_family_id:
@@ -75,37 +78,46 @@ class VCF:
 
         # check if it is a (test or a subject) or if it is a (filtering or merging)
         if not homozygous_test_subset:
-            # /Users/jguerra/PycharmProjects/genome/data/Sample_054
-            # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
-            # extract list of object in the data directory
-            # this line only keeps the directories/folder
-            _, family_member_folder_list, _ = os.walk(self.working_dir).next()
 
-            for member_folder in family_member_folder_list:
-                if 'Sample_' in member_folder:
-                    # complete directory location
-                    cl_mem_folder = os.path.join(self.working_dir, member_folder)
-                    # actual location of the vcf.gz files
-                    data_dir = os.path.join(cl_mem_folder, 'analysis')
-                    # get all the files in the analysis location
-                    # this line only keeps the files
-                    _, _, member_file_list = os.walk(data_dir).next()
-                    
-                    # check if there exists vcf.gz files or any other files
-                    # this check that the list is not empty
-                    if len(member_file_list) == 0:
-                        raise ValueError('directory = {0} is empty'.format(data_dir))
+            # check if vcf.gz file given
+            if 'vcf.gz' in self.working_dir:
+                member_file = self.working_dir.split('/')[-1]
+                self.vcf_files.append(member_file)
+                self.vcf_files_dir.append(self.working_dir)
 
-                    for member_file in member_file_list:
-                        # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
-                        # version has already been created
-                        if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
-                            # create a variable with the whole path/directory of the file
-                            member_dir = os.path.join(data_dir, member_file)
+            # else, go through the hierarchy of the directories
+            else:
+                # /Users/jguerra/PycharmProjects/genome/data/Sample_054
+                # /Users/jguerra/PycharmProjects/genome/data/Sample_054/Sample_054-
+                # extract list of object in the data directory
+                # this line only keeps the directories/folder
+                _, family_member_folder_list, _ = os.walk(self.working_dir).next()
 
-                            # add to the object for later processing
-                            self.vcf_files.append(member_file)
-                            self.vcf_files_dir.append(member_dir)
+                for member_folder in family_member_folder_list:
+                    if 'Sample_' in member_folder:
+                        # complete directory location
+                        cl_mem_folder = os.path.join(self.working_dir, member_folder)
+                        # actual location of the vcf.gz files
+                        data_dir = os.path.join(cl_mem_folder, 'analysis')
+                        # get all the files in the analysis location
+                        # this line only keeps the files
+                        _, _, member_file_list = os.walk(data_dir).next()
+
+                        # check if there exists vcf.gz files or any other files
+                        # this check that the list is not empty
+                        if len(member_file_list) == 0:
+                            raise ValueError('directory = {0} is empty'.format(data_dir))
+
+                        for member_file in member_file_list:
+                            # check for the right vcf.gz file by omitting the vcf.gz.tbi file as well as if a filtered
+                            # version has already been created
+                            if member_file.endswith('vcf.gz') and 'filtered' not in member_file:
+                                # create a variable with the whole path/directory of the file
+                                member_dir = os.path.join(data_dir, member_file)
+
+                                # add to the object for later processing
+                                self.vcf_files.append(member_file)
+                                self.vcf_files_dir.append(member_dir)
 
         # for stats collection, only look for the cvf.gz file
         else:
@@ -200,33 +212,50 @@ class VCF:
         end in the name 'filtered.vcg.gz'
         """
         print '\nFilter option selected'
-        for vcf_dir, vcf in zip(self.vcf_files_dir, self.vcf_files):
-            print 'processing {0}'.format(vcf)
+        for vcf_dir, vcf_file in zip(self.vcf_files_dir, self.vcf_files):
+            print 'processing {0}'.format(vcf_file)
 
-            # this flag indicates when to start collecting data
-            val_flag = False
-            # only take = CHROM, POS, REF, ALT, genotype
-            values_of_interest = [True, True, False, True, True, False, False, False, False, True]
+            # only take = CHROM, POS, REF, ALT, genotype(s)
+            column_of_interest = ['#CHROM', 'POS', 'REF', 'ALT', self.vcf_family_id]
 
+            # open vcf.gz file to read on
             file_obj_read = gzip.open(vcf_dir, 'r')
             # new file filtered
             new_directory = vcf_dir.replace('.vcf.gz', '.filtered.vcf.gz')
             file_obj_write = gzip.open(new_directory, 'w+')
-            # genotype title has to be different depending on the vcf file
-            genotype = vcf.split('.')[0]
-            # file header
-            file_obj_write.writelines('#CHROM\tPOS\tREF\tALT\t' + genotype + '\n')
+
+            # this flag indicates when the reading comments
+            comment_flag = True
 
             header = '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t'
+
             for line in file_obj_read:
+                # check if header line
                 if header in line:
-                    val_flag = True
-                elif val_flag:
+                    # switch flag in order to start collecting data
+                    comment_flag = False
+                    header_columns = line.split('\t')
+
+                    # this list will indices whether or not to keep the values
+                    column_of_interest_indices = [False] * len(header_columns)
+
+                    for col_index, col_val in enumerate(header_columns):
+                        if '-' in col_val:
+                            col_val = int(col_val.split('-')[0])
+                        if col_val in column_of_interest:
+                            column_of_interest_indices[col_index] = True
+
+                elif not comment_flag:
+                    line = line.replace('\n', '')
                     split_line = line.split('\t')
-                    # filter the list split_line based on the boolean list values_of_intest
-                    new_list = list(compress(split_line, values_of_interest))
+                    # filter the list split_line based on the boolean list values_of_interest_indices
+                    new_list = list(compress(split_line, column_of_interest_indices))
                     # only get the genotype information - remove the metadata after the genotype information
-                    new_list[4] = new_list[4].split(':')[0]
+                    for gen_index, gen_info in enumerate(new_list[4:]):
+                        if '/' in gen_info:
+                            gen_info = gen_info.split(':')[0]
+                        new_list[4 + gen_index] = gen_info
+
                     new_line = '\t'.join(new_list)
                     new_line += '\n'
                     file_obj_write.writelines(new_line)
