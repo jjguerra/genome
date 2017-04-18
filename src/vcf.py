@@ -206,10 +206,11 @@ class VCF:
             else:
                 return self.vcf_files_dir
 
-    def filter(self):
+    def filter(self, output_dir=''):
         """
         Creates a new vcf.gz file with only the CHROM, POS, REF, ALT, genotype columns. This new vcf.gz file will be 
         end in the name 'filtered.vcg.gz'
+        :param output_dir:
         """
         print '\nFilter option selected'
         for vcf_dir, vcf_file in zip(self.vcf_files_dir, self.vcf_files):
@@ -222,7 +223,12 @@ class VCF:
             file_obj_read = gzip.open(vcf_dir, 'r')
             # new file filtered
             new_directory = vcf_dir.replace('.vcf.gz', '.filtered.vcf.gz')
-            file_obj_write = gzip.open(new_directory, 'w+')
+            if output_dir:
+                filename = new_directory.split('/')[-1]
+                new_directory = os.path.join(output_dir, filename)
+                file_obj_write = gzip.open(new_directory, 'w+')
+            else:
+                file_obj_write = gzip.open(new_directory, 'w+')
 
             # this flag indicates when the reading comments
             comment_flag = True

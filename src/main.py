@@ -104,7 +104,7 @@ def main():
         vcf.read_files(c_dir=working_directory)
         # filter columns of the vcf files
         if args.filter:
-            vcf.filter()
+            vcf.filter(output_dir=output_directory)
         else:
             vcf.merge(output_dir=output_directory)
 
