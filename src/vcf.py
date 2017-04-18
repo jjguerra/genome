@@ -240,6 +240,7 @@ class VCF:
                 if header in line:
                     # switch flag in order to start collecting data
                     comment_flag = False
+                    line = line.replace('\n', '')
                     header_columns = line.split('\t')
 
                     # this list will indices whether or not to keep the values
@@ -251,7 +252,7 @@ class VCF:
                         if col_val in column_of_interest:
                             column_of_interest_indices[col_index] = True
 
-                    new_header = list(compress(split_line, column_of_interest_indices))
+                    new_header = list(compress(header_columns, column_of_interest_indices))
                     new_line = '\t'.join(new_header)
                     new_line += '\n'
                     file_obj_write.writelines(new_line)
