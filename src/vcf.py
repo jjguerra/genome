@@ -251,6 +251,11 @@ class VCF:
                         if col_val in column_of_interest:
                             column_of_interest_indices[col_index] = True
 
+                    new_header = list(compress(split_line, column_of_interest_indices))
+                    new_line = '\t'.join(new_header)
+                    new_line += '\n'
+                    file_obj_write.writelines(new_line)
+
                 elif not comment_flag:
                     line = line.replace('\n', '')
                     split_line = line.split('\t')
