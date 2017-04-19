@@ -46,7 +46,7 @@ class VCF:
         elif self.vcf_family_id == 85:
             self.family_info = Family(parent='085-001', offspring=['085-002', '085-006'], other=['085-004', '054-005'])
         elif self.vcf_family_id == 89:
-            self.family_info = Family(parent='089-001', offspring=['089-007'], other=['089-005', '089-006', '089-009'])
+            self.family_info = Family(parent='089-001', offspring=['089-003', '089-007'], other=['089-006', '089-009'])
         elif self.vcf_family_id == 95:
             # 1st possibility
             # self.family_info = Family(parent='095-002', offspring=['095-047'], other=['095-005', '095-010', '095- 12',
