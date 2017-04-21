@@ -20,20 +20,22 @@ class VCF:
         self.vcf_files_dir = list()
         self.family_info = Family()  # this variable will be pointing to the family.Family class
 
-    def read_files(self, c_dir, homozygous_test_subset=False, chrom=''):
+    def read_files(self, c_dir, vcf_filtered_file=False, chrom=''):
         """
         loop through all the folder within the parent directory and stores the vcf.gz files         
         :param c_dir: parent directory 
-        :param homozygous_test_subset: flag in order to collect a different kind of data for statistics collection
+        :param vcf_filtered_file: flag in order to collect a different kind of data for statistics collection
         :param chrom: chromosome number if need of specific file with that chromosome
         """
-        # save the c_dir for later use
-        self.working_dir = c_dir
 
         # the number in the Sample_0XX
         if 'vcf.gz' in c_dir:
             self.vcf_family_id = int(c_dir.split('/')[-1].split('.')[0])
+            # save the c_dir for later use
+            self.working_dir = '/'.join(c_dir.split('/')[:-1])
         else:
+            # save the c_dir for later use
+            self.working_dir = c_dir
             self.vcf_family_id = int(c_dir.split('/')[-1].replace('Sample_', ''))
 
         # check if c_dir is the right parent directory
@@ -77,13 +79,13 @@ class VCF:
             chrom = 'chrom' + str(chrom)
 
         # check if it is a (test or a subject) or if it is a (filtering or merging)
-        if not homozygous_test_subset:
+        if not vcf_filtered_file:
 
             # check if vcf.gz file given
-            if 'vcf.gz' in self.working_dir:
-                member_file = self.working_dir.split('/')[-1]
-                self.vcf_files.append(member_file)
-                self.vcf_files_dir.append(self.working_dir)
+            if 'vcf.gz' in c_dir:
+                member_file = c_dir.split('/')[-1]
+                self.vcf_files = member_file
+                self.vcf_files_dir = c_dir
 
             # else, go through the hierarchy of the directories
             else:
@@ -785,6 +787,66 @@ class VCF:
     def _output_line(file_obj, line_info):
         print line_info
         file_obj.writelines(line_info + '\n')
+
+    def list_chrom(self, output_dir=''):
+        """
+        This function loop through the vcf.gz file and collect the different types of chromosomes
+        :param output_dir: (optional) location to output the statistics file
+        """
+        print '\nlist-chromosomes option selected'
+
+        # open the vcf file
+        file_obj_read = gzip.open(self.vcf_files_dir, 'r')
+
+        # create the output filename
+        subset_filename = 'chromosome.list.txt'
+
+        filename = self.vcf_files.replace('vcf.gz', subset_filename)
+        print 'chromosome list stored in filename = {0}'.format(filename)
+
+        # check if output directory was provided
+        if output_dir:
+            subset_dir = os.path.join(output_dir, filename)
+        # if not provided, use the working directory
+        else:
+            subset_dir = os.path.join(self.working_dir, filename)
+
+        print 'chromosome list directory = {0}'.format(subset_dir)
+
+        # output object
+        file_obj_write = open(subset_dir, 'w+')
+
+        file_obj_write.write('Chromosomes found: \n')
+
+        # keep track of the chromosomes found in order to not insert duplicates
+        chromosome_founded_list = list()
+
+        # keep track of the number of chromosomes
+        chromosome_founded_count = 0
+
+        header = True
+        for line in file_obj_read:
+
+            if header:
+                header = False
+
+            else:
+                # split the lab on the tab operator and grab the chromosome number
+                line_chromosome = line.split('\t')[0]
+                if line_chromosome not in chromosome_founded_list:
+                    file_obj_write.write('\t' + line_chromosome + '\n')
+                    chromosome_founded_list.append(line_chromosome)
+                    chromosome_founded_count += 1
+
+        msg = 'total number of chromosomes found = {0}\n'.format(chromosome_founded_count)
+        file_obj_write.write('\n' + msg)
+        print msg
+        print 'finished obtaining list of chromosomes\n'
+
+        file_obj_read.close()
+        file_obj_write.close()
+
+        self._change_file_permission(file_directory=subset_dir)
 
     def subset(self, chrom, output_dir='', n_sites=float("inf")):
         """

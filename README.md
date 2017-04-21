@@ -1,7 +1,7 @@
 # genome
 ```
 usage: main.py [-h] [-d DIRECTORY] [-f] [-m] [-o OUTPUT] [-ht] [-s]
-               [-c CHROMOSOME] [-n NUMBER_SITES]
+               [-c CHROMOSOME] [-n NUMBER_SITES] [-p] [-lc]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -23,6 +23,9 @@ optional arguments:
   -n NUMBER_SITES, --number_sites NUMBER_SITES
                         use argument to select the number of line on which to
                         subset on
+  -p, --phase           use argument to select the phasing test
+  -lc, --list_chromosomes
+                        list all the chromosomes in a vcf.gz file
 ```
 
 Use the following commands depending on the function.

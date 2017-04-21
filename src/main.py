@@ -86,6 +86,8 @@ def main():
                         type=int)
     # optional argument
     parser.add_argument('-p', '--phase', action='store_true', help='use argument to select the phasing test')
+    parser.add_argument('-lc', '--list_chromosomes', action='store_true', help='list all the chromosomes in a vcf.gz '
+                                                                               'file')
     args = parser.parse_args()
 
     working_directory, output_directory, chromosome, filter_merge = process_arguments(c_directory=args.directory,
@@ -98,8 +100,12 @@ def main():
     # create VCF object
     vcf = VCF()
 
+    if args.list_chromosomes:
+        vcf.read_files(c_dir=working_directory, vcf_filtered_file=False)
+        vcf.list_chrom(output_dir=output_directory)
+
     # filtering and merging have to read all the vcf files on the subdirectories of the families
-    if filter_merge:
+    elif filter_merge:
         # read all the vcf files for that family
         vcf.read_files(c_dir=working_directory)
         # filter columns of the vcf files
@@ -117,12 +123,12 @@ def main():
                 raise ValueError('Chromosome number must be provided in order to perform subset')
 
             # read all the vcf files for that family
-            vcf.read_files(c_dir=working_directory, homozygous_test_subset=True)
+            vcf.read_files(c_dir=working_directory, vcf_filtered_file=True)
             vcf.subset(chrom=args.chromosome, output_dir=output_directory, n_sites=args.number_sites)
 
         else:
             # read all the vcf files for that family
-            vcf.read_files(c_dir=working_directory, homozygous_test_subset=True, chrom=chromosome)
+            vcf.read_files(c_dir=working_directory, vcf_filtered_file=True, chrom=chromosome)
 
             if args.homozygous_test:
                 # collect homozygous statistics
