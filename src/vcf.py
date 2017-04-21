@@ -48,7 +48,7 @@ class VCF:
         if self.vcf_family_id == 54:
             self.family_info = Family(parent='054-001', offspring=['054-003', '054-004'], other=['054-002', '054-005'])
         elif self.vcf_family_id == 85:
-            self.family_info = Family(parent='085-001', offspring=['085-002', '085-006'], other=['085-004', '054-005'])
+            self.family_info = Family(parent='085-001', offspring=['085-002', '085-006'], other=['085-003', '054-004'])
         elif self.vcf_family_id == 89:
             self.family_info = Family(parent='089-001', offspring=['089-003', '089-007'], other=['089-006', '089-009'])
         elif self.vcf_family_id == 95:

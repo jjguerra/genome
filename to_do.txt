@@ -1,4 +1,1 @@
-sample_085: should test offspring 003
 sample_109: should compare 002 003 against 001
-sample_110: homozygous test data ends at chrom 14
-Sample_095: homozygous test is empty
