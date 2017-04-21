@@ -36,6 +36,8 @@ class VCF:
         else:
             # save the c_dir for later use
             self.working_dir = c_dir
+            if c_dir[-1] == '/':
+                c_dir = c_dir[:-1]
             self.vcf_family_id = int(c_dir.split('/')[-1].replace('Sample_', ''))
 
         # check if c_dir is the right parent directory
