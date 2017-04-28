@@ -6,6 +6,7 @@ from shutil import copyfile
 from snp import SNP
 import subprocess
 import numpy as np
+import warnings
 
 
 class VCF:
@@ -515,46 +516,67 @@ class VCF:
 
         # create the statistics filename based on whether testing is being done considering a chromosome specified file
         if chrom:
-            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.text'
-            multi_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + \
-                             chrom + '_multi_alleles.text'
+            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.txt'
+            multiallelic_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + \
+                                    '_multiallelic.txt'
+            biallelic_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + \
+                                 '_biallelic.txt'
         else:
-            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '.text'
-            multi_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_multi_alleles.text'
+            filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '.txt'
+            multiallelic_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_multiallelic.txt'
+            biallelic_filename = 'homozygous_test_fam' + str(self.vcf_family_id) + '_biallelic.txt'
 
         # check if output directory was provided
         if output_dir:
             homozygous_dir = os.path.join(output_dir, filename)
-            multi_alleles_dir = os.path.join(output_dir, multi_filename)
+            multiallelic_dir = os.path.join(output_dir, multiallelic_filename)
+            biallelic_dir = os.path.join(output_dir, biallelic_filename)
         # if not provided, use the working directory
         else:
             homozygous_dir = os.path.join(self.working_dir, filename)
-            multi_alleles_dir = os.path.join(self.working_dir, multi_filename)
+            multiallelic_dir = os.path.join(self.working_dir, multiallelic_filename)
+            biallelic_dir = os.path.join(self.working_dir, biallelic_filename)
 
         # output object
         file_obj_write = open(homozygous_dir, 'w+')
 
-        # output multiple allele file
-        file_obj_write_multi = open(multi_alleles_dir, 'w+')
+        # output bi/multi-allelic file
+        file_obj_write_multi = open(multiallelic_dir, 'w+')
+        file_obj_write_bi = open(biallelic_dir, 'w+')
 
         # keep track of different alleles between homozygous parent and offspring
-        mismatch_parent_offspring_homo = [0.0] * len(self.family_info.offspring)
+        mismatch_parent_offspring_homo = [np.float64(0.0)] * len(self.family_info.offspring)
         # keep track of different alleles between parent and offspring
-        mismatch_parent_offspring_all = [0.0] * len(self.family_info.offspring)
-        # keep track of different alleles between homozygous parent and offspring for multiple-alleles
-        mismatch_parent_offspring_homo_multiall = [0.0] * len(self.family_info.offspring)
-        # keep track of different alleles between parent and offspring for multiple-alleles
-        mismatch_parent_offspring_all_multiall = [0.0] * len(self.family_info.offspring)
+        mismatch_parent_offspring_all = [np.float64(0.0)] * len(self.family_info.offspring)
         # total numbers of sites
-        total_num_sites = np.float64(0)
+        total_num_sites = np.float64(0.0)
+        total_num_sites_child = [np.float64(0.0)] * len(self.family_info.offspring)
         # total number of sites evaluated
-        total_num_sites_eval = np.float64(0)
-        # total number of multi-alleles sites for homozygous parent and offspring
-        total_num_multi_all_sites_eval_homo = np.float64(0)
-        # total number of multi-alleles sites for homozygous parent and heterogeneous offspring
-        total_num_multi_all_sites_eval_diff = np.float64(0)
-        # keep track of lines added to the multi-alleles file
-        muti_allele_added_line = list()
+        total_num_sites_eval = np.float64(0.0)
+
+        # biallelic information
+        # keep track of different alleles between homozygous parent and offspring for biallelic
+        biallelic_mismatch_parent_offspring_homo = [np.float64(0.0)] * len(self.family_info.offspring)
+        # keep track of different alleles between parent and offspring for biallelic
+        biallelic_mismatch_parent_offspring_diff = [np.float64(0.0)] * len(self.family_info.offspring)
+        # total number of biallelic sites for homozygous parent and offspring
+        biallelic_total_num_sites_eval_homo = [np.float64(0.0)] * len(self.family_info.offspring)
+        # total number of biallelic sites for homozygous parent and heterogeneous offspring
+        biallelic_total_num_sites_eval_diff = [np.float64(0.0)] * len(self.family_info.offspring)
+        # keep track of lines added to the biallelic file
+        biallelic_added_line = list()
+
+        # multiallelic information
+        # keep track of different alleles between homozygous parent and offspring for multiallelic
+        multiallelic_mismatch_parent_offspring_homo = [np.float64(0.0)] * len(self.family_info.offspring)
+        # keep track of different alleles between parent and offspring for multiallelic
+        multiallelic_mismatch_parent_offspring_diff = [np.float64(0.0)] * len(self.family_info.offspring)
+        # total number of multiallelic sites for homozygous parent and offspring
+        multiallelic_total_num_sites_eval_homo = [np.float64(0.0)] * len(self.family_info.offspring)
+        # total number of multiallelic sites for homozygous parent and heterogeneous offspring
+        multiallelic_total_num_sites_eval_diff = [np.float64(0.0)] * len(self.family_info.offspring)
+        # keep track of lines added to the multiallelic file
+        multiallelic_added_line = list()
 
         # set flag to skip the header
         header = True
@@ -562,14 +584,15 @@ class VCF:
         # keep track of the parent column index
         parent_col_index = ''
 
-        # keep track of the REF column index
-        reference_col = ''
+        # keep track of the ALT column index
+        alternate_col = ''
 
         # read the file line by line
         for line in file_obj_read:
 
-            # se flag to get multiple alleles information
-            multiple_allele_site = False
+            # set flag to get bi/multi-allelic information
+            multiallelic_site = False
+            biallelic_site = False
 
             # skip and write the header
             if header:
@@ -578,6 +601,7 @@ class VCF:
                 print line
                 file_obj_write.writelines(line)
                 file_obj_write_multi.writelines(line)
+                file_obj_write_bi.writelines(line)
 
                 parent_number = self.family_info.parent
 
@@ -585,8 +609,8 @@ class VCF:
                 for header_index, header_info in enumerate(header_columns):
                     if parent_number in header_info:
                         parent_col_index = header_index
-                    if 'REF' in header_info:
-                        reference_col = header_index
+                    if 'ALT' in header_info:
+                        alternate_col = header_index
 
                 if parent_col_index == '':
                     raise ValueError('The parent was not found in the vcf file')
@@ -625,10 +649,12 @@ class VCF:
                     if genotype_parent and self._is_homozygous(genotype=genotype_parent):
                         # increased sites evaluated
                         total_num_sites_eval += 1
-                        # check if parent has multiple alleles (more than 3)
-                        reference_alleles = line_information[reference_col]
-                        if len(reference_alleles) > 2:
-                            multiple_allele_site = True
+                        # check if parent has multiple alternate alleles (more than 3)
+                        alternate_alleles = line_information[alternate_col].split(',')
+                        if len(alternate_alleles) > 1:
+                            multiallelic_site = True
+                        else:
+                            biallelic_site = True
 
                         for offspring_index, offspring in enumerate(offspring_list):
                             try:
@@ -638,32 +664,59 @@ class VCF:
                                 # get the genotype information
                                 offspring_genotype = line_information[col_index].replace('\n', '')
 
+                                total_num_sites_child[offspring_index] += np.float64(1)
+
                                 # check if offspring is homozygous
                                 if self._is_homozygous(offspring_genotype):
+
+                                    # keep track of the total number of biallelic or multiallelic sites
+                                    if biallelic_site:
+                                        biallelic_total_num_sites_eval_homo[offspring_index] += np.float64(1)
+                                    else:
+                                        multiallelic_total_num_sites_eval_homo[offspring_index] += np.float64(1)
+
                                     # if the parent and the child are homozygous on different allele,
                                     # print a warning message
                                     # write the line into the file
                                     if offspring_genotype[0] != genotype_parent[0]:
                                         mismatch_parent_offspring_homo[offspring_index] += np.float64(1)
                                         file_obj_write.writelines(line)
-                                        print 'error on chrom = {0}, position = {1} - parents and offspring homozygous' \
-                                              'alleles mismatch'.format(line_information[0], line_information[1])
+                                        print 'error on chrom = {0}, position = {1} - parents and offspring ' \
+                                              'homozygous alleles mismatch'.format(line_information[0],
+                                                                                   line_information[1])
                                         print 'offspring = {0}'.format(offspring)
                                         print line
 
                                         # get statistics for multiple alleles
-                                        if multiple_allele_site:
+                                        if multiallelic_site:
                                             # collect statistics
-                                            mismatch_parent_offspring_homo_multiall[offspring_index] += np.float64(1)
-                                            total_num_multi_all_sites_eval_homo += np.float64(1)
-                                            if line not in muti_allele_added_line:
+                                            multiallelic_mismatch_parent_offspring_homo[offspring_index] += np.float64(1)
+                                            if line not in multiallelic_added_line:
                                                 file_obj_write_multi.writelines(line)
-                                                muti_allele_added_line.append(line)
+                                                multiallelic_added_line.append(line)
+                                        elif biallelic_site:
+                                            # collect statistics
+                                            biallelic_mismatch_parent_offspring_homo[offspring_index] += np.float64(1)
+                                            if line not in biallelic_added_line:
+                                                file_obj_write_bi.writelines(line)
+                                                biallelic_added_line.append(line)
+                                        else:
+                                            raise ValueError(
+                                                'The SNP {0} is neither biallelic or multiallelic for the '
+                                                'homogeneous parent and offspring. Wrong'
+                                                'information.'.format(line))
                                 # if its not homozygous, make sure it has at least one allele transmitted by the parent
                                 else:
                                     first_allele, second_allele = offspring_genotype.split('/')
                                     if (first_allele not in genotype_parent_list) and\
                                             (second_allele not in genotype_parent_list):
+
+                                        # keep track of the total number of biallelic or multiallelic sites
+                                        if biallelic_site:
+                                            biallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
+                                        else:
+                                            multiallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
+
                                         mismatch_parent_offspring_all[offspring_index] += np.float64(1)
                                         file_obj_write.writelines(line)
                                         msg = 'error chrom = {0}, position = {1} - parents and offspring alleles ' \
@@ -674,13 +727,22 @@ class VCF:
                                         print line
 
                                         # get statistics for multiple alleles
-                                        if multiple_allele_site:
+                                        if multiallelic_site:
                                             # collect statistics
-                                            mismatch_parent_offspring_all_multiall[offspring_index] += np.float64(1)
-                                            total_num_multi_all_sites_eval_diff += np.float64(1)
-                                            if line not in muti_allele_added_line:
+                                            multiallelic_mismatch_parent_offspring_diff[offspring_index] += np.float64(1)
+                                            if line not in multiallelic_added_line:
                                                 file_obj_write_multi.writelines(line)
-                                                muti_allele_added_line.append(line)
+                                                multiallelic_added_line.append(line)
+                                        elif biallelic_site:
+                                            # collect statistics
+                                            biallelic_mismatch_parent_offspring_diff[offspring_index] += np.float64(1)
+                                            if line not in multiallelic_added_line:
+                                                file_obj_write_bi.writelines(line)
+                                                biallelic_added_line.append(line)
+                                        else:
+                                            raise ValueError('The SNP {0} is neither biallelic or multiallelic for the '
+                                                             'homogeneous parent and heterogeneous offspring. Wrong'
+                                                             'information.'.format(line))
 
                             # this is done for sites where the offspring does not have information
                             except IndexError:
@@ -690,15 +752,13 @@ class VCF:
                 except IndexError:
                     pass
 
+        warnings.filterwarnings('ignore')
+
         print '{0}\n'.format(self.vcf_files)
 
-        msg = '\ntotal number of sites = {0}'.format(total_num_sites)
+        msg = 'Parent\'s VCF information\ntotal number of sites = {0}'.format(total_num_sites)
         self._output_line(file_obj=file_obj_write, line_info=msg)
-        msg = 'total number of sites evaluated = {0}'.format(total_num_sites_eval)
-        self._output_line(file_obj=file_obj_write, line_info=msg)
-        msg = 'total number of sites evaluated = {0} (multi-alleles - homozygous)'.format(total_num_multi_all_sites_eval_homo)
-        self._output_line(file_obj=file_obj_write, line_info=msg)
-        msg = 'total number of sites evaluated = {0} (multi-alleles - diff)'.format(total_num_multi_all_sites_eval_diff)
+        msg = 'total number of sites evaluated = {0} (sites where the parent is homozygous)'.format(total_num_sites_eval)
         self._output_line(file_obj=file_obj_write, line_info=msg)
         # make a line
         self._output_line(file_obj=file_obj_write, line_info='')
@@ -714,68 +774,126 @@ class VCF:
                 msg = 'offspring = {0}'.format(offspring)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
+                msg = 'total number of sites evaluated = {0} (all sites i.e. biallelic and multiallelic)'.format(
+                    total_num_sites_child[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+                msg = 'total number of sites evaluated = {0} (biallelic - homozygous parent and offspring)'.format(
+                    biallelic_total_num_sites_eval_homo[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+                msg = 'total number of sites evaluated = {0} (biallelic - homozygous parent and heterozygous offspring'\
+                    ' [none of the offsprings alleles match the parent])'.format(
+                        biallelic_total_num_sites_eval_diff[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+                msg = 'total number of sites evaluated = {0} (multiallelic - homozygous parent and offspring)'.format(
+                    multiallelic_total_num_sites_eval_homo[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+                msg = 'total number of sites evaluated = {0} (multiallelic - homozygous parent and heterozygous ' \
+                      'offspring [none of the offsprings\' alleles match the parent])\n'.format(
+                        multiallelic_total_num_sites_eval_diff[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
                 # provide information on homozygous parent and offspring difference
-                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0}'.format(
+                msg = 'number of wrong alleles between homozygous parent and offspring SNP = {0}'.format(
                     mismatch_parent_offspring_homo[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
-                ratio = np.float64(mismatch_parent_offspring_homo[offspring_index]) / total_num_sites_eval
+                try:
+                    ratio = np.float64(mismatch_parent_offspring_homo[offspring_index]) / total_num_sites_child[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
                 msg = 'mismatch ratio = {0}'.format(ratio)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
-                # provide information about homozygous parent and different offspring alleles
-                msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
+                # provide information on homozygous parent and offspring difference for biallelic
+                msg = 'number of wrong alleles between biallelic homozygous parent and offspring SNP = {0}'.format(
+                    biallelic_mismatch_parent_offspring_homo[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(biallelic_mismatch_parent_offspring_homo[offspring_index]) / total_num_sites_child[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (all sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(biallelic_mismatch_parent_offspring_homo[offspring_index]) / \
+                        biallelic_total_num_sites_eval_homo[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (only wrong biallelic sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                # provide information on homozygous parent and offspring difference for multiallelic
+                msg = 'number of wrong alleles between multiallelic homozygous parent and offspring SNP = {0}'.format(
+                    multiallelic_mismatch_parent_offspring_homo[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(multiallelic_mismatch_parent_offspring_homo[offspring_index]) / \
+                        total_num_sites_child[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (all sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(multiallelic_mismatch_parent_offspring_homo[offspring_index]) / \
+                        multiallelic_total_num_sites_eval_homo[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (only wrong multiallelic sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                # provide information about homozygous parent and heterogeneous offspring alleles
+                msg = 'number of wrong alleles between homozygous parent and heterozygous offspring SNP = {0}'.format(
                     mismatch_parent_offspring_all[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
-                ratio = np.float64(mismatch_parent_offspring_all[offspring_index]) / total_num_sites_eval
+                try:
+                    ratio = np.float64(mismatch_parent_offspring_all[offspring_index]) / total_num_sites_child[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
                 msg = 'mismatch ratio = {0}'.format(ratio)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
-                self._output_line(file_obj=file_obj_write, line_info='\n')
 
-                # provide information on homozygous parent and offspring difference for multi alleles
-                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0} (multi-alleles)'.format(
-                    mismatch_parent_offspring_homo_multiall[offspring_index])
+                msg = 'number of wrong alleles between biallelic homozygous parent and heterogeneous offspring SNP = ' \
+                      '{0}'.format(biallelic_mismatch_parent_offspring_diff[offspring_index])
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
-                ratio = np.float64(mismatch_parent_offspring_homo_multiall[offspring_index]) / \
-                    total_num_sites_eval
-                msg = 'mismatch ratio = {0} (for all sites)'.format(ratio)
-                self._output_line(file_obj=file_obj_write, line_info=msg)
-
-                # provide information about homozygous parent and different offspring alleles for multi alleles
-                msg = 'number of wrong alleles between parent and offspring SNP = {0} (multi-alleles)'.format(
-                    mismatch_parent_offspring_all_multiall[offspring_index])
-                self._output_line(file_obj=file_obj_write, line_info=msg)
-
-                ratio = np.float64(mismatch_parent_offspring_all_multiall[offspring_index]) / \
-                    total_num_sites_eval
-                msg = 'mismatch ratio = {0} (for all sites)'.format(ratio)
-                self._output_line(file_obj=file_obj_write, line_info=msg)
-                self._output_line(file_obj=file_obj_write, line_info='\n')
-
-                # provide information on homozygous parent and offspring difference for multi alleles
-                msg = 'number of wrong homozygous parent and homozygous offspring SNP = {0} (multi-alleles)'.format(
-                    mismatch_parent_offspring_homo_multiall[offspring_index])
-                self._output_line(file_obj=file_obj_write, line_info=msg)
-
-                if total_num_multi_all_sites_eval_homo:
-                    ratio = mismatch_parent_offspring_homo_multiall[offspring_index] / total_num_multi_all_sites_eval_homo
-                else:
+                try:
+                    ratio = np.float64(biallelic_mismatch_parent_offspring_diff[offspring_index]) / total_num_sites_child[offspring_index]
+                except RuntimeWarning:
                     ratio = 0
-                msg = 'mismatch ratio = {0} (multi-alleles)'.format(ratio)
+                msg = 'mismatch ratio = {0} (all sites)'.format(ratio)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
 
-                # provide information about homozygous parent and different offspring alleles for multi alleles
-                msg = 'number of wrong alleles between parent and offspring SNP = {0}'.format(
-                    mismatch_parent_offspring_all_multiall[offspring_index])
-                self._output_line(file_obj=file_obj_write, line_info=msg)
-
-                if total_num_multi_all_sites_eval_diff:
-                    ratio = mismatch_parent_offspring_all_multiall[offspring_index] / total_num_multi_all_sites_eval_diff
-                else:
+                try:
+                    ratio = np.float64(biallelic_mismatch_parent_offspring_diff[offspring_index]) / \
+                        biallelic_total_num_sites_eval_diff[offspring_index]
+                except RuntimeWarning:
                     ratio = 0
-                msg = 'mismatch ratio = {0} (for multi-alleles sites)'.format(ratio)
+                msg = 'mismatch ratio = {0} (only wrong biallelic sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                msg = 'number of wrong alleles between multiallelic homozygous parent and heterogeneous offspring ' \
+                      'SNP = {0}'.format(multiallelic_mismatch_parent_offspring_diff[offspring_index])
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(multiallelic_mismatch_parent_offspring_diff[offspring_index]) \
+                            / total_num_sites_child[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (all sites)'.format(ratio)
+                self._output_line(file_obj=file_obj_write, line_info=msg)
+
+                try:
+                    ratio = np.float64(multiallelic_mismatch_parent_offspring_diff[offspring_index]) / \
+                        multiallelic_total_num_sites_eval_diff[offspring_index]
+                except RuntimeWarning:
+                    ratio = 0
+                msg = 'mismatch ratio = {0} (only wrong multiallelic sites)'.format(ratio)
                 self._output_line(file_obj=file_obj_write, line_info=msg)
                 self._output_line(file_obj=file_obj_write, line_info='\n')
 
@@ -784,6 +902,8 @@ class VCF:
         file_obj_read.close()
 
         self._change_file_permission(file_directory=homozygous_dir)
+
+        warnings.filterwarnings('always')
 
     @staticmethod
     def _output_line(file_obj, line_info):
