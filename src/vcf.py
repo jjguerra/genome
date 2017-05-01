@@ -707,15 +707,15 @@ class VCF:
                                                 'information.'.format(line))
                                 # if its not homozygous, make sure it has at least one allele transmitted by the parent
                                 else:
+                                    # keep track of the total number of biallelic or multiallelic sites
+                                    if biallelic_site:
+                                        biallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
+                                    else:
+                                        multiallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
+
                                     first_allele, second_allele = offspring_genotype.split('/')
                                     if (first_allele not in genotype_parent_list) and\
                                             (second_allele not in genotype_parent_list):
-
-                                        # keep track of the total number of biallelic or multiallelic sites
-                                        if biallelic_site:
-                                            biallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
-                                        else:
-                                            multiallelic_total_num_sites_eval_diff[offspring_index] += np.float64(1)
 
                                         mismatch_parent_offspring_all[offspring_index] += np.float64(1)
                                         file_obj_write.writelines(line)

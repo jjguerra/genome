@@ -17,8 +17,6 @@ if __name__ == '__main__':
 
     for line in file_obj_read:
         if '#CHROM\tPOS\tID' in line:
-            import IPython
-            IPython.embed()
             file_obj_write.writelines(line)
         else:
             file_obj_write.writelines(line)
