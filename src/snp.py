@@ -111,6 +111,7 @@ class SNP:
         Compares a new SNP information to the previously stored   
         :param add_snp_file:
         :param additional_snp_info: new SNP information 
+        :param n_col: number of columns
         """
         # comp_info (list): 0 = chrom, 1 = pos, 2 = ref, 3 = alt, 4 = genotype
         comp_info = additional_snp_info.split('\t')

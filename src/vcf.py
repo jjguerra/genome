@@ -4,9 +4,11 @@ import os
 from family import Family
 from shutil import copyfile
 from snp import SNP
-import subprocess
 import numpy as np
 import warnings
+import utils
+from itertools import groupby
+from operator import itemgetter
 
 
 class VCF:
@@ -281,7 +283,7 @@ class VCF:
             file_obj_read.close()
             file_obj_write.close()
 
-            self._change_file_permission(file_directory=new_directory)
+            utils.change_file_permission(file_directory=new_directory)
 
     def _create_base_file(self):
         """
@@ -302,7 +304,7 @@ class VCF:
         vcf_file_dir = self.get_vcfs_dir(vcf_filename, filtered=True)
         copyfile(vcf_file_dir, ref_file_dir)
 
-        self._change_file_permission(file_directory=ref_file_dir)
+        utils.change_file_permission(file_directory=ref_file_dir)
 
         return ref_file_dir, ref_filename, vcf_filename
 
@@ -483,20 +485,6 @@ class VCF:
 
         print 'finished merging all vcf files to dir = {0}'.format(ref_filename)
 
-    @staticmethod
-    def _is_homozygous(genotype):
-        """
-        check if the genotype passed is homozygous
-        :param genotype: genotype info i.e. 0/0 
-        :return: true if it is homozygous else false
-        """
-        genotype_alleles = genotype.split('/')
-
-        if genotype_alleles[0] == genotype_alleles[1]:
-            return True
-        else:
-            return False
-
     def tests(self, output_dir='', chrom='', homozygous_test=False):
         """
         This function collect homozygous statistics from mother to offsprings
@@ -646,7 +634,7 @@ class VCF:
 
                     # check if the parent's genotype was provided since there are cases when it is not.
                     # if it is then check whether it is homozygous
-                    if genotype_parent and self._is_homozygous(genotype=genotype_parent):
+                    if genotype_parent and utils.is_homozygous(genotype=genotype_parent):
                         # increased sites evaluated
                         total_num_sites_eval += 1
                         # check if parent has multiple alternate alleles (more than 3)
@@ -667,7 +655,7 @@ class VCF:
                                 total_num_sites_child[offspring_index] += np.float64(1)
 
                                 # check if offspring is homozygous
-                                if self._is_homozygous(offspring_genotype):
+                                if utils.is_homozygous(offspring_genotype):
 
                                     # keep track of the total number of biallelic or multiallelic sites
                                     if biallelic_site:
@@ -1026,12 +1014,258 @@ class VCF:
         file_obj_read.close()
         file_obj_write.close()
 
-        self._change_file_permission(file_directory=subset_dir)
+        utils.change_file_permission(file_directory=subset_dir)
 
-    @staticmethod
-    def _change_file_permission(file_directory=''):
+    def tmp_test(self, output_dir='', chrom=''):
         """
-        This function is used in order to change the file permission of any file to o=r
-        :param file_directory: 
+        This function collect phasing statistics 
+        :param output_dir: (optional) location to output the statistics file
+        :param chrom: chromosome being evaluated
         """
-        subprocess.call(['chmod', '-R', 'o=r', file_directory])
+        print '\nphasing_test option selected'
+
+        # open the vcf file
+        file_obj_read = gzip.open(self.vcf_files_dir, 'r')
+
+        print 'reading vcf file = {0}'.format(self.vcf_files)
+
+        # set flag to skip the header
+        header = True
+
+        # keep track of the parent column index
+        parent_col_index = ''
+
+        # keep track of whether or not the offspring alleles match the parent of not
+        # 0 = False, 1 = True
+        offsprings_alleles_matches = dict()
+        # keep track of the file obj in a list
+        offspring_file_objects = dict()
+
+        # keep track of the last allele location
+        last_allele_location = dict()
+        # keep track of how many error are in a roll
+        sequence_error_count = dict()
+
+        # for each offspring, find their column in the vcf.gz file and make a dictionary where the key
+        # is the offspring name and its value is the column
+        offspring_col_index_dict = dict()
+
+        # keep track of the number of recombinations per child
+        recombination_count = dict()
+
+        # loop through the offspring to create their respective output files and store them in the
+        # offspring_file_objects dictionary where the key is the offspring name and the value is the file object
+        for offspring in self.family_info.offspring:
+            offsprings_alleles_matches[offspring] = list()
+            # create the statistics filename based on whether testing is being done considering a chromosome specified
+            # file
+            if chrom:
+                filename = 'phasing_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '_offspring_' + \
+                           offspring+'.txt'
+            else:
+                filename = 'phasing_test_fam' + str(self.vcf_family_id) + '_offspring_' + offspring+'.txt'
+
+            # check if output directory was provided
+            if output_dir:
+                phasing_dir = os.path.join(output_dir, filename)
+            # if not provided, use the working directory
+            else:
+                phasing_dir = os.path.join(self.working_dir, filename)
+
+            print 'output phased file = {0}'.format(phasing_dir)
+
+            # output object
+            file_obj_write = open(phasing_dir, 'w+')
+            # add the object to a list
+            offspring_file_objects[offspring] = file_obj_write
+            # keep track of whether the parent allele is in the right or left side
+            last_allele_location[offspring] = 'None'
+            # keep track of how many error are in a roll
+            sequence_error_count[offspring] = 0
+            # keep track of the number of recombinations per child
+            recombination_count[offspring] = 0
+
+        # read the file line by line
+        for line in file_obj_read:
+
+            # skip and write the header
+            if header:
+                # switch header flag
+                header = False
+                # divide the lines by its column names
+                header_columns = line.replace('\n', '').split('\t')
+                # obtain family's parent id
+                parent_column = self.family_info.parent
+
+                # find the column index of the parent, reference and alternate alleles
+                parent_col_index = header_columns.index(parent_column)
+
+                if parent_col_index == '':
+                    raise ValueError('The parent was not found in the vcf file')
+
+                # create a list of offspring IDs
+                offspring_list = self.family_info.offspring
+                for offspring in offspring_list:
+                    offspring_col_index_dict[offspring] = header_columns.index(offspring)
+
+                    new_header = '\t'.join(header_columns[0:4]) + '\t' + parent_column + '\t' + offspring + \
+                                 '\tLOC\tCOMMENT\n'
+                    offspring_file_objects[offspring].write(new_header)
+
+                # check for errors
+                if len(offspring_col_index_dict.keys()) != len(offspring_list):
+                    # Note: we can actually check for the offsprings which values were not populated
+                    raise ValueError('Some of the offspring were not found in the vcf file')
+
+            # from the second line
+            else:
+                # parse the line
+                line_information = line.split('\t')
+
+                # parse the genotypes of parent
+                parent_genotype = line_information[parent_col_index]
+
+                # check if the parent's genotype was provided since there are cases when it is not.
+                if '.' in parent_genotype:
+                    continue
+
+                # for each offspring
+                #   1. obtain its column index
+                #   2. obtain its genotype
+                #   3. calculate the side (left, right or both) that matches to its parent genotype
+                #   4. write the information in the offspring file
+                #   5. store the last offspring phased side in order to not reprint extra information
+                for offspring in offspring_list:
+                    #   1. obtain its column index
+                    col_index = offspring_col_index_dict[offspring]
+
+                    #   2. obtain its genotype
+                    offspring_genotype = line_information[col_index].replace('\n', '')
+
+                    if '.' in offspring_genotype:
+                        sequence_error_count[offspring] += 1
+                        if sequence_error_count[offspring] > 5:
+
+                            new_line = '\t{0}\t{1}\t{2}\t\tMISS - Reach {3} consecutive errors\n'.format('\t'.join(
+                                line_information[0:4]), parent_genotype, offspring_genotype,
+                                sequence_error_count[offspring])
+                        else:
+                            new_line = '\t{0}\t{1}\t{2}\t\tMISS\n'.format('\t'.join(
+                                line_information[0:4]), parent_genotype, offspring_genotype)
+
+                    else:
+                        #   3. calculate the side (left, right or both) that matches to its parent genotype
+                        allele_location, _ = utils.check_parent_offspring(p_gen=parent_genotype,
+                                                                          o_gen=offspring_genotype)
+
+                        if allele_location == last_allele_location[offspring] or allele_location == 'Both':
+                            new_line = '\t{0}\t{1}\t{2}\n'.format('\t'.join(line_information[0:4]), parent_genotype,
+                                                                  offspring_genotype)
+                            # reset error count
+                            sequence_error_count[offspring] = 0
+
+                        elif utils.is_homozygous(genotype=parent_genotype):
+                            # create the new line to be written in the file
+                            new_line = '\t{0}\t{1}\t{2}\t{3}\tINIT\n'.format('\t'.join(line_information[0:4]),
+                                                                             parent_genotype, offspring_genotype,
+                                                                             allele_location)
+                            # reset error count
+                            sequence_error_count[offspring] = 0
+                        else:
+                            sequence_error_count[offspring] += 1
+
+                            if sequence_error_count[offspring] > 5:
+                                new_line = '\t{0}\t{1}\t{2}\t{3}\t- ERROR - Reach {4} consecutive errors\n'.format(
+                                    '\t'.join(line_information[0:4]), parent_genotype, offspring_genotype,
+                                    allele_location, sequence_error_count[offspring])
+                            else:
+                                new_line = '\t{0}\t{1}\t{2}\t{3}\t-ERROR - Assuming recombination\n'.format(
+                                    '\t'.join(line_information[0:4]), parent_genotype, offspring_genotype,
+                                    allele_location)
+
+                                recombination_count[offspring] += 1
+
+                    #   4. write the information in the offspring file
+                    offspring_file_objects[offspring].write(new_line)
+                    last_allele_location[offspring] = allele_location
+
+        for offspring in self.family_info.offspring:
+            # alleles_matches = np.array(offsprings_alleles_matches[offspring])
+            # left_ones = np.where(alleles_matches[:, 0] == 1)
+            # right_ones = np.where(alleles_matches[:, 1] == 1)
+
+            # left_sequence = list()
+            # for k, g in groupby(enumerate(left_ones[0]), lambda (i, x): i - x):
+            #     left_sequence.append(map(itemgetter(1), g))
+
+            line = 'total number recombinations = {0}'.format(recombination_count[offspring])
+            offspring_file_objects[offspring].write(line)
+
+    def opposite_homozygous(self, output_dir='', chrom=''):
+        """
+        This function collect homozygous statistics from mother to offsprings
+        :param output_dir: (optional) location to output the statistics file
+        :param chrom: chromosome being evaluated
+        """
+        print '\nopposite_homozygous option selected'
+
+        # open the vcf file
+        file_obj_read = gzip.open(self.vcf_files_dir, 'r')
+
+        print 'reading vcf file = {0}'.format(self.vcf_files)
+
+        # create the statistics filename based on whether testing is being done considering a chromosome specified file
+        if chrom:
+            filename = 'opposite_homozygous_test_fam' + str(self.vcf_family_id) + '_' + 'chrom' + chrom + '.txt'
+
+        else:
+            filename = 'opposite_homozygous_test_fam' + str(self.vcf_family_id) + '.txt'
+
+        # check if output directory was provided
+        if output_dir:
+            opposite_homozygous_dir = os.path.join(output_dir, filename)
+        # if not provided, use the default or working directory
+        else:
+            opposite_homozygous_dir = os.path.join(self.working_dir, filename)
+
+        opp_file_obj = open(opposite_homozygous_dir)
+
+        # set flag to process the header
+        header = True
+
+        # for each offspring, find their column in the vcf.gz file and make a dictionary where the key
+        # is the offspring name and its value is the column
+        offspring_col_index_dict = dict()
+
+        for line in file_obj_read:
+
+            # check if is it a header
+            if header:
+                # switch header flag
+                header = False
+                # divide the lines by its column names
+                header_columns = line.split('\t')
+                # obtain family's parent id
+                parent_id = self.family_info.parent
+
+                # find the column index of the parent, reference and alternate alleles
+                parent_col_index = header_columns.index(parent_id)
+
+                if parent_col_index == '':
+                    raise ValueError('The parent was not found in the vcf file')
+
+                # create a list of offspring IDs
+                offspring_list = self.family_info.offspring
+
+                for offspring in offspring_list:
+                    offspring_col_index_dict[offspring] = header_columns.index(offspring)
+
+                # header[0:4] = CHROM, POS, ID, REF, ALT
+                new_header = '\t{0}\t{1}\t{2}\n'.format('\t'.join(header_columns[0:4]), parent_id,
+                                                        '\t'.join(offspring_list))
+                opp_file_obj.write(new_header)
+                print new_header
+
+                if len(offspring_col_index_dict.keys()) != len(offspring_list):
+                    # Note: we can actually check for the offsprings which values were not populated
+                    raise ValueError('Some of the offspring were not found in the vcf file')

@@ -16,7 +16,7 @@ for member in ${dir}/*; do
                 zcat ${vcf_file} > ${vcf_filename} 
                 echo "removing ${vcf_file}"
                 rm -rf ${vcf_file}
-                echo "bgzipp ${vcf_filename}"
+                echo "bgzip ${vcf_filename}"
                 bgzip ${vcf_filename}
                 echo "tabix ${vcf_file}"
                 args="-p vcf"

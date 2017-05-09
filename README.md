@@ -1,6 +1,6 @@
 # genome
 ```
-usage: main.py [-h] [-d DIRECTORY] [-f] [-m] [-o OUTPUT] [-ht] [-s]
+usage: genome_qc.py [-h] [-d DIRECTORY] [-f] [-m] [-o OUTPUT] [-ht] [-s]
                [-c CHROMOSOME] [-n NUMBER_SITES] [-p] [-lc]
 
 optional arguments:

@@ -135,7 +135,7 @@ def main():
                 vcf.tests(output_dir=output_directory, chrom=chromosome, homozygous_test=True)
 
             if args.phase:
-                vcf.tests(output_dir=output_directory, chrom=chromosome, homozygous_test=False)
+                vcf.tmp_test(output_dir=output_directory, chrom=chromosome)
 
 
 if __name__ == '__main__':
